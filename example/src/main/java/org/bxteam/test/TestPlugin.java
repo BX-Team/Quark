@@ -11,7 +11,7 @@ public class TestPlugin extends JavaPlugin {
     @Override
     public void onLoad() {
         libraryManager = new BukkitLibraryManager(this);
-        libraryManager.addMavenCentral();
+        libraryManager.addGoogleMavenCentralMirror();
 
         libraryManager.loadDependency("com.google.code.gson", "gson", "2.10.1");
     }
