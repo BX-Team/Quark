@@ -80,7 +80,6 @@ public class Repository {
     public String getArtifactUrl(@NotNull String artifactPath) {
         requireNonNull(artifactPath, "Artifact path cannot be null");
 
-        // Ensure artifact path doesn't start with /
         String normalizedPath = artifactPath.startsWith("/") ? artifactPath.substring(1) : artifactPath;
 
         return baseUrl + "/" + normalizedPath;

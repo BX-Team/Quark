@@ -12,8 +12,11 @@ public final class Repositories {
 
     /**
      * Maven Central repository URL.
+     *
+     * @deprecated Use {@link #GOOGLE_MAVEN_CENTRAL_MIRROR} instead to comply with Maven Central Terms of Service.
      */
-    public static final String MAVEN_CENTRAL = "https://repo1.maven.org/maven2/";
+    @Deprecated
+    public static final String MAVEN_CENTRAL = "https://repo1.maven.org/maven2";
 
     /**
      * Google Maven Central mirror URL.

@@ -29,10 +29,6 @@ tasks {
         minimize()
     }
 
-    build {
-        dependsOn(shadowJar)
-    }
-
     runServer {
         serverType(ServerType.PAPER)
         serverVersion("1.21.8")

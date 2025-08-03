@@ -3,6 +3,7 @@ package org.bxteam.quark.dependency;
 import org.bxteam.quark.logger.Logger;
 import org.bxteam.quark.repository.Repository;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -20,7 +21,7 @@ import java.util.List;
 import static java.util.Objects.requireNonNull;
 
 /**
- * Downloads dependency JARs from Maven repositories.
+ * Downloads dependency JARs and POM files from Maven repositories.
  */
 public class DependencyDownloader {
     private final Logger logger;
@@ -46,11 +47,19 @@ public class DependencyDownloader {
 
     @NotNull
     private Path tryDownloadDependency(@NotNull Dependency dependency) throws URISyntaxException {
-        Path localPath = dependency.toMavenJar(localRepository).toPath();
+        Path localJarPath = dependency.toMavenJar(localRepository).toPath();
+        Path localPomPath = dependency.toPomXml(localRepository).toPath();
 
-        if (Files.exists(localPath) && isValidJarFile(localPath)) {
-            logger.debug("Using cached dependency: " + dependency);
-            return localPath;
+        boolean jarExists = Files.exists(localJarPath) && isValidJarFile(localJarPath);
+        boolean pomExists = Files.exists(localPomPath) && isValidPomFile(localPomPath);
+
+        if (jarExists && pomExists) {
+            logger.debug("Using cached dependency with POM: " + dependency);
+            return localJarPath;
+        } else if (jarExists) {
+            logger.debug("Using cached dependency (POM not available): " + dependency);
+            tryDownloadPomOnly(dependency, localPomPath);
+            return localJarPath;
         }
 
         List<DependencyException> exceptions = new ArrayList<>();
@@ -61,13 +70,14 @@ public class DependencyDownloader {
             }
 
             try {
-                Path downloadedPath = downloadJarAndSave(repository, dependency, localPath);
+                DependencyDownloadResult result = downloadDependencyAndPom(repository, dependency, localJarPath, localPomPath);
 
                 String cleanRepoUrl = getCleanRepositoryUrl(repository);
-                logger.info("Downloaded " + dependency + " from " + cleanRepoUrl);
+                if (result.jarDownloaded()) {
+                    logger.info("Downloaded " + dependency + " from " + cleanRepoUrl);
+                }
 
-                return downloadedPath;
-
+                return result.jarPath();
             } catch (DependencyException e) {
                 exceptions.add(e);
                 String cleanRepoUrl = getCleanRepositoryUrl(repository);
@@ -83,64 +93,152 @@ public class DependencyDownloader {
     }
 
     /**
-     * Gets a clean, user-friendly repository URL for logging.
+     * Tries to download only the POM file for an existing dependency.
      */
-    @NotNull
-    private String getCleanRepositoryUrl(@NotNull Repository repository) {
-        String url = repository.getUrl();
-
-        if (url.equals("https://repo1.maven.org/maven2")) {
-            return "https://repo.maven.apache.org/maven2";
-        }
-
-        return url;
-    }
-
-    @NotNull
-    private Path downloadJarAndSave(@NotNull Repository repository, @NotNull Dependency dependency, @NotNull Path localFile) {
-        try {
-            byte[] jarBytes = downloadJar(repository, dependency);
-
-            Path parentDir = localFile.getParent();
-            if (parentDir != null) {
-                Files.createDirectories(parentDir);
+    private void tryDownloadPomOnly(@NotNull Dependency dependency, @NotNull Path localPomPath) {
+        for (Repository repository : repositories) {
+            if (repository.isLocal()) {
+                continue;
             }
 
-            Files.write(localFile, jarBytes, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+            try {
+                downloadPomAndSave(repository, dependency, localPomPath);
+                String cleanRepoUrl = getCleanRepositoryUrl(repository);
+                logger.debug("Downloaded POM for cached dependency " + dependency + " from " + cleanRepoUrl);
+                return;
+            } catch (Exception e) {
+                logger.debug("Failed to download POM for " + dependency + " from " + repository + ": " + e.getMessage());
+            }
+        }
+
+        logger.debug("Could not download POM for dependency: " + dependency);
+    }
+
+    /**
+     * Downloads both JAR and POM files for a dependency from a specific repository.
+     */
+    @NotNull
+    private DependencyDownloadResult downloadDependencyAndPom(@NotNull Repository repository,
+                                                              @NotNull Dependency dependency,
+                                                              @NotNull Path localJarPath,
+                                                              @NotNull Path localPomPath) {
+        boolean jarDownloaded = false;
+        boolean pomDownloaded = false;
+
+        if (!Files.exists(localJarPath) || !isValidJarFile(localJarPath)) {
+            downloadJarAndSave(repository, dependency, localJarPath);
+            jarDownloaded = true;
+        }
+
+        if (!Files.exists(localPomPath) || !isValidPomFile(localPomPath)) {
+            try {
+                downloadPomAndSave(repository, dependency, localPomPath);
+                pomDownloaded = true;
+            } catch (DependencyException e) {
+                logger.warn("Failed to download POM for " + dependency + " from " + getCleanRepositoryUrl(repository) + ": " + e.getMessage());
+            }
+        }
+
+        return new DependencyDownloadResult(localJarPath, jarDownloaded, pomDownloaded);
+    }
+
+    /**
+     * Downloads and saves a JAR file.
+     */
+    private void downloadJarAndSave(@NotNull Repository repository, @NotNull Dependency dependency, @NotNull Path localFile) {
+        try {
+            byte[] jarBytes = downloadFile(dependency.toMavenJar(repository).toURL(), "JAR");
+            saveFile(jarBytes, localFile);
 
             if (!isValidJarFile(localFile)) {
                 throw new DependencyException("Downloaded JAR is invalid or corrupted: " + dependency);
             }
-
-            return localFile;
         } catch (FileNotFoundException | NoSuchFileException e) {
-            throw new DependencyException("Dependency not found in repository " + repository + ": " + dependency.toMavenJar(repository), e);
+            throw new DependencyException("JAR not found in repository " + repository + ": " + dependency.toMavenJar(repository), e);
         } catch (IOException e) {
-            throw new DependencyException("Failed to save dependency " + dependency, e);
+            throw new DependencyException("Failed to save JAR for dependency " + dependency, e);
         }
     }
 
+    /**
+     * Downloads and saves a POM file.
+     */
+    private void downloadPomAndSave(@NotNull Repository repository, @NotNull Dependency dependency, @NotNull Path localFile) {
+        try {
+            byte[] pomBytes = downloadFile(dependency.toPomXml(repository).toURL(), "POM");
+            saveFile(pomBytes, localFile);
+
+            if (!isValidPomFile(localFile)) {
+                try {
+                    String content = Files.readString(localFile);
+                    logger.debug("Downloaded POM content for " + dependency + " (first 200 chars): " +
+                            content.substring(0, Math.min(200, content.length())));
+                } catch (Exception ignored) { }
+
+                throw new DependencyException("Downloaded POM is invalid or corrupted: " + dependency);
+            }
+        } catch (FileNotFoundException | NoSuchFileException e) {
+            throw new DependencyException("POM not found in repository " + repository + ": " + dependency.toPomXml(repository), e);
+        } catch (IOException e) {
+            throw new DependencyException("Failed to save POM for dependency " + dependency, e);
+        }
+    }
+
+    /**
+     * Downloads a file from a URL.
+     */
     @NotNull
-    private byte[] downloadJar(@NotNull Repository repository, @NotNull Dependency dependency) throws IOException {
-        URL jarUrl = dependency.toMavenJar(repository).toURL();
-        URLConnection connection = jarUrl.openConnection();
+    private byte[] downloadFile(@NotNull URL fileUrl, @NotNull String fileType) throws IOException {
+        URLConnection connection = fileUrl.openConnection();
 
         connection.setConnectTimeout(30000);
         connection.setReadTimeout(60000);
 
         connection.setRequestProperty("User-Agent", "Quark-LibraryManager/1.0");
 
+        logger.debug("Downloading " + fileType + " from: " + fileUrl);
+
         try (InputStream inputStream = connection.getInputStream()) {
             byte[] bytes = inputStream.readAllBytes();
 
             if (bytes.length == 0) {
-                throw new IOException("Empty JAR file downloaded for: " + dependency);
+                throw new IOException("Empty " + fileType + " file downloaded from: " + fileUrl);
             }
 
+            logger.debug("Downloaded " + bytes.length + " bytes for " + fileType + " from: " + fileUrl);
             return bytes;
         }
     }
 
+    /**
+     * Saves bytes to a file.
+     */
+    private void saveFile(@NotNull byte[] bytes, @NotNull Path filePath) throws IOException {
+        Path parentDir = filePath.getParent();
+        if (parentDir != null) {
+            Files.createDirectories(parentDir);
+        }
+
+        Files.write(filePath, bytes, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+    }
+
+    /**
+     * Gets a clean, user-friendly repository URL for logging.
+     */
+    @NotNull
+    private String getCleanRepositoryUrl(@NotNull Repository repository) {
+        String url = repository.getUrl();
+
+        return switch (url) {
+            case "https://repo1.maven.org/maven2" -> "https://repo.maven.apache.org/maven2";
+            case "https://maven.google.com/maven2" -> "https://maven-central.storage-download.googleapis.com/maven2";
+            default -> url;
+        };
+    }
+
+    /**
+     * Validates that a file is a valid JAR file.
+     */
     private boolean isValidJarFile(@NotNull Path jarFile) {
         try {
             return Files.exists(jarFile) &&
@@ -149,6 +247,73 @@ public class DependencyDownloader {
         } catch (IOException e) {
             return false;
         }
+    }
+
+    /**
+     * Validates that a file is a valid POM file.
+     * Improved validation that's more lenient but still catches real issues.
+     */
+    private boolean isValidPomFile(@NotNull Path pomFile) {
+        try {
+            if (!Files.exists(pomFile) || !Files.isRegularFile(pomFile) || Files.size(pomFile) == 0) {
+                return false;
+            }
+
+            String content = Files.readString(pomFile).trim();
+
+            if (content.isEmpty()) {
+                return false;
+            }
+
+            boolean hasXmlDeclaration = content.startsWith("<?xml");
+            boolean hasProjectTag = content.contains("<project") || content.contains("<project>");
+            boolean hasValidXmlStructure = content.contains("<") && content.contains(">");
+
+            if (!hasValidXmlStructure) {
+                logger.debug("POM file doesn't have valid XML structure: " + pomFile);
+                return false;
+            }
+
+            if (!hasXmlDeclaration && !hasProjectTag) {
+                logger.debug("POM file doesn't look like a Maven POM (no XML declaration or project tag): " + pomFile);
+
+                String[] lines = content.split("\n", 5);
+                logger.debug("POM content preview:");
+                for (int i = 0; i < Math.min(3, lines.length); i++) {
+                    logger.debug("  Line " + (i + 1) + ": " + lines[i]);
+                }
+
+                return false;
+            }
+
+            if (content.toLowerCase().contains("<html") || content.toLowerCase().contains("<!doctype html")) {
+                logger.debug("POM file appears to be HTML (probably an error page): " + pomFile);
+                return false;
+            }
+
+            return true;
+        } catch (IOException e) {
+            logger.debug("Error reading POM file " + pomFile + ": " + e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Gets a POM file for a dependency if it exists locally.
+     */
+    @Nullable
+    public Path getPomFile(@NotNull Dependency dependency) {
+        requireNonNull(dependency, "Dependency cannot be null");
+
+        Path pomPath = dependency.toPomXml(localRepository).toPath();
+        return (Files.exists(pomPath) && isValidPomFile(pomPath)) ? pomPath : null;
+    }
+
+    /**
+     * Checks if a POM file exists for a dependency.
+     */
+    public boolean hasPomFile(@NotNull Dependency dependency) {
+        return getPomFile(dependency) != null;
     }
 
     public int getRepositoryCount() {
@@ -166,5 +331,16 @@ public class DependencyDownloader {
                 "repositories=" + repositories.size() +
                 ", localRepository=" + localRepository +
                 '}';
+    }
+
+    /**
+     * Result of downloading a dependency.
+     */
+    private record DependencyDownloadResult(@NotNull Path jarPath, boolean jarDownloaded, boolean pomDownloaded) {
+        private DependencyDownloadResult(@NotNull Path jarPath, boolean jarDownloaded, boolean pomDownloaded) {
+            this.jarPath = requireNonNull(jarPath, "JAR path cannot be null");
+            this.jarDownloaded = jarDownloaded;
+            this.pomDownloaded = pomDownloaded;
+        }
     }
 }

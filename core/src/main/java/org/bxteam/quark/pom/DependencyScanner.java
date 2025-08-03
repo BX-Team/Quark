@@ -5,57 +5,46 @@ import org.bxteam.quark.dependency.DependencyCollector;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * Interface for scanning and collecting dependencies from various sources.
+ * Interface for scanning dependencies and finding their transitive dependencies.
  *
- * <p>Dependency scanners are responsible for analyzing dependency metadata
- * (such as POM files) and recursively collecting all transitive dependencies.
- * This is essential for building a complete dependency graph and ensuring
- * all required libraries are available at runtime.</p>
- *
- * <p>Implementations of this interface should handle:</p>
- * <ul>
- *   <li>Reading dependency metadata from repositories</li>
- *   <li>Parsing dependency declarations</li>
- *   <li>Recursively resolving transitive dependencies</li>
- *   <li>Handling dependency scopes and exclusions</li>
- *   <li>Managing circular dependency detection</li>
- * </ul>
+ * <p>Implementations of this interface are responsible for analyzing dependency
+ * metadata (such as POM files) to discover transitive dependencies and add
+ * them to the provided collector.</p>
  */
 public interface DependencyScanner {
     /**
-     * Finds and collects all child dependencies for the given dependency.
+     * Finds all children (transitive dependencies) for the given dependency
+     * and adds them to the collector.
      *
-     * <p>This method recursively scans the dependency's metadata (typically POM file)
-     * to find all transitive dependencies. The collector is used to track which
-     * dependencies have already been processed to avoid infinite loops.</p>
+     * <p>This method should recursively process transitive dependencies,
+     * ensuring that the entire dependency tree is resolved. The implementation
+     * should handle version conflicts and avoid infinite loops.</p>
      *
-     * @param collector the dependency collector to track processed dependencies
+     * @param collector the collector to add found dependencies to
      * @param dependency the dependency to scan for children
-     * @return the updated dependency collector with all found dependencies
-     * @throws NullPointerException if collector or dependency is null
+     * @throws org.bxteam.quark.dependency.DependencyException if scanning fails
      */
-    @NotNull
-    DependencyCollector findAllChildren(@NotNull DependencyCollector collector, @NotNull Dependency dependency);
+    void findAllChildren(@NotNull DependencyCollector collector, @NotNull Dependency dependency);
 
     /**
-     * Checks if this scanner supports the given dependency type.
+     * Checks if the scanner can handle the given dependency.
      *
-     * <p>Default implementation returns true for all dependencies.
-     * Implementations can override this to support only specific types.</p>
+     * <p>This method allows implementations to indicate whether they
+     * can process a particular dependency type or format.</p>
      *
      * @param dependency the dependency to check
      * @return true if this scanner can process the dependency
      */
-    default boolean supports(@NotNull Dependency dependency) {
+    default boolean canHandle(@NotNull Dependency dependency) {
         return true;
     }
 
     /**
-     * Gets a human-readable name for this scanner type.
+     * Gets a description of this scanner implementation.
      *
-     * @return the scanner type name
+     * @return a human-readable description
      */
-    default String getType() {
+    default String getDescription() {
         return getClass().getSimpleName();
     }
 }

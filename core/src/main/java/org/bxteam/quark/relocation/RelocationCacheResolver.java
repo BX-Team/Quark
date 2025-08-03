@@ -74,13 +74,11 @@ public class RelocationCacheResolver {
             Path cacheFile = getRelocationsCacheFile(dependency);
             String relocationsString = relocationsToString(relocations);
 
-            // Ensure parent directory exists
             Path parentDir = cacheFile.getParent();
             if (parentDir != null) {
                 Files.createDirectories(parentDir);
             }
 
-            // Write relocations to cache file
             Files.writeString(cacheFile, relocationsString, StandardCharsets.UTF_8);
 
         } catch (IOException e) {
@@ -114,7 +112,6 @@ public class RelocationCacheResolver {
             return Optional.of(content.trim());
 
         } catch (IOException e) {
-            // If we can't read the cache, assume we need to relocate
             return Optional.empty();
         }
     }
@@ -124,7 +121,6 @@ public class RelocationCacheResolver {
      */
     @NotNull
     private Path getRelocationsCacheFile(@NotNull Dependency dependency) {
-        // Create a path within the dependency's directory
         String relativePath = dependency.getGroupId().replace('.', '/') + '/' +
                 dependency.getArtifactId() + '/' +
                 dependency.getVersion() + '/' +
@@ -144,22 +140,7 @@ public class RelocationCacheResolver {
         try {
             Path cacheFile = getRelocationsCacheFile(dependency);
             Files.deleteIfExists(cacheFile);
-        } catch (IOException e) {
-            // Ignore errors when clearing cache
-        }
-    }
-
-    /**
-     * Clears all relocation caches.
-     */
-    public void clearAllCaches() {
-        try {
-            // This would require walking the entire repository tree
-            // For now, we'll leave this as a no-op
-            // TODO: Implement if needed
-        } catch (Exception e) {
-            // Ignore errors when clearing caches
-        }
+        } catch (IOException e) { }
     }
 
     @Override

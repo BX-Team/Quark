@@ -54,12 +54,10 @@ public class DependencyCollector {
             return false;
         }
 
-        // Allow upgrading from BOM to non-BOM dependency
         if (existing.isBom() && !dependency.isBom()) {
             return false;
         }
 
-        // Check if existing version is same or newer
         return existing.getVersion().equals(dependency.getVersion()) || existing.isNewerThan(dependency);
     }
 
@@ -85,7 +83,6 @@ public class DependencyCollector {
                 return dependency;
             }
 
-            // Convert both to non-BOM for comparison if either is not BOM
             Dependency currentToCompare = existing;
             Dependency newToCompare = dependency;
 
@@ -94,7 +91,6 @@ public class DependencyCollector {
                 newToCompare = dependency.asNotBom();
             }
 
-            // Return the newer version
             return newToCompare.isNewerThan(currentToCompare) ? newToCompare : currentToCompare;
         });
     }

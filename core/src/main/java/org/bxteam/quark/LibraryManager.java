@@ -119,6 +119,7 @@ public abstract class LibraryManager implements AutoCloseable {
     /**
      * Adds the Maven Central repository.
      */
+    @Deprecated
     public void addMavenCentral() {
         addRepository(Repositories.MAVEN_CENTRAL);
     }
@@ -218,7 +219,6 @@ public abstract class LibraryManager implements AutoCloseable {
 
             List<DependencyLoadEntry> loadEntries = downloadAndRelocateDependencies(collector, relocations);
 
-            // Load into isolated class loader
             for (DependencyLoadEntry entry : loadEntries) {
                 classLoader.addPath(entry.path());
                 loadedDependencies.put(entry.dependency(), entry.path());
@@ -276,6 +276,10 @@ public abstract class LibraryManager implements AutoCloseable {
     }
 
     private DependencyCollector resolveTransitiveDependencies(@NotNull Collection<Dependency> dependencies) {
+        if (dependencyScanner instanceof PomXmlScanner) {
+            ((PomXmlScanner) dependencyScanner).clearCache();
+        }
+
         DependencyCollector collector = new DependencyCollector();
         collector.addScannedDependencies(dependencies);
 

@@ -2,365 +2,233 @@ package org.bxteam.quark.pom;
 
 import org.bxteam.quark.dependency.Dependency;
 import org.bxteam.quark.dependency.DependencyCollector;
+import org.bxteam.quark.repository.LocalRepository;
 import org.bxteam.quark.repository.Repository;
 import org.jetbrains.annotations.NotNull;
-import org.w3c.dom.Document;
-import org.w3c.dom.Element;
-import org.w3c.dom.NodeList;
-import org.xml.sax.SAXException;
+import org.jetbrains.annotations.Nullable;
 
-import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.parsers.ParserConfigurationException;
-import java.io.File;
-import java.io.IOException;
+import javax.xml.xpath.XPath;
+import javax.xml.xpath.XPathConstants;
+import javax.xml.xpath.XPathFactory;
 import java.io.InputStream;
-import java.net.URISyntaxException;
-import java.net.URL;
 import java.nio.file.Files;
-import java.nio.file.StandardCopyOption;
-import java.util.*;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+import org.w3c.dom.Document;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
 
 import static java.util.Objects.requireNonNull;
 
 /**
- * Scanner for Maven POM.xml files to resolve transitive dependencies.
+ * Scans POM XML files to find transitive dependencies.
  *
- * <p>This scanner downloads and parses POM files from Maven repositories to build
- * a complete dependency graph. It handles various Maven features including:</p>
- * <ul>
- *   <li>Transitive dependency resolution</li>
- *   <li>Property substitution in versions</li>
- *   <li>Dependency management (BOM) imports</li>
- *   <li>Scope filtering (compile, runtime)</li>
- *   <li>Optional dependency handling</li>
- * </ul>
+ * <p>This implementation reads POM files from the local repository
+ * (downloaded by DependencyDownloader) and parses them to discover
+ * transitive dependencies.</p>
  */
 public class PomXmlScanner implements DependencyScanner {
-
-    private static final DocumentBuilderFactory DOCUMENT_BUILDER_FACTORY = createSecureDocumentBuilderFactory();
-
-    // Maven scopes that we process
-    private static final Set<String> ACCEPTED_SCOPES = Set.of("compile", "runtime", "import");
-
-    private final Repository localRepository;
     private final List<Repository> repositories;
+    private final LocalRepository localRepository;
+    private final Set<String> processedDependencies = new HashSet<>();
 
-    /**
-     * Creates a new POM scanner.
-     *
-     * @param repositories the repositories to search for POM files
-     * @param localRepository the local repository for caching
-     * @throws NullPointerException if any parameter is null
-     */
-    public PomXmlScanner(@NotNull List<Repository> repositories, @NotNull Repository localRepository) {
+    public PomXmlScanner(@NotNull List<Repository> repositories, @NotNull LocalRepository localRepository) {
         this.repositories = new ArrayList<>(requireNonNull(repositories, "Repositories cannot be null"));
         this.localRepository = requireNonNull(localRepository, "Local repository cannot be null");
     }
 
-    /**
-     * Creates a secure DocumentBuilderFactory with XXE protection.
-     */
-    @NotNull
-    private static DocumentBuilderFactory createSecureDocumentBuilderFactory() {
-        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+    @Override
+    public void findAllChildren(@NotNull DependencyCollector collector, @NotNull Dependency dependency) {
+        requireNonNull(collector, "Collector cannot be null");
+        requireNonNull(dependency, "Dependency cannot be null");
 
-        try {
-            // Enable secure processing
-            factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+        String dependencyKey = dependency.getGroupArtifactId() + ":" + dependency.getVersion();
 
-            // Disable DTD processing to prevent XXE attacks
-            factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-            factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
-            factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
-            factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
-
-            // Disable XInclude and entity expansion
-            factory.setXIncludeAware(false);
-            factory.setExpandEntityReferences(false);
-
-        } catch (ParserConfigurationException e) {
-            throw new PomScannerException("Failed to configure secure XML parser", e);
+        if (processedDependencies.contains(dependencyKey)) {
+            return;
         }
 
-        return factory;
+        if (collector.hasScannedDependency(dependency)) {
+            return;
+        }
+
+        processedDependencies.add(dependencyKey);
+
+        collector.addScannedDependency(dependency);
+
+        Path pomFile = findPomFile(dependency);
+        if (pomFile == null) {
+            return;
+        }
+
+        try {
+            List<Dependency> transitiveDependencies = parsePomFile(pomFile);
+
+            for (Dependency transitiveDep : transitiveDependencies) {
+                findAllChildren(collector, transitiveDep);
+            }
+
+        } catch (Exception e) {
+            System.err.println("Warning: Failed to parse POM file for " + dependency + ": " + e.getMessage());
+        }
     }
 
     @Override
-    @NotNull
-    public DependencyCollector findAllChildren(@NotNull DependencyCollector collector, @NotNull Dependency dependency) {
-        requireNonNull(collector, "Dependency collector cannot be null");
+    public boolean canHandle(@NotNull Dependency dependency) {
         requireNonNull(dependency, "Dependency cannot be null");
 
-        for (Repository repository : repositories) {
-            Optional<List<Dependency>> childDependencies = tryReadDependencies(dependency, repository);
+        Path pomFile = findPomFile(dependency);
+        return pomFile != null;
+    }
 
-            if (childDependencies.isEmpty()) {
-                continue;
+    @Override
+    public String getDescription() {
+        return "POM XML Scanner (supports Maven POM files)";
+    }
+
+    /**
+     * Finds the POM file for a dependency.
+     */
+    @Nullable
+    private Path findPomFile(@NotNull Dependency dependency) {
+        Path localPomPath = dependency.toPomXml(localRepository).toPath();
+        if (Files.exists(localPomPath) && isValidPomFile(localPomPath)) {
+            return localPomPath;
+        }
+
+        return null;
+    }
+
+    /**
+     * Validates that a file is a valid POM file.
+     */
+    private boolean isValidPomFile(@NotNull Path pomFile) {
+        try {
+            if (!Files.exists(pomFile) || !Files.isRegularFile(pomFile) || Files.size(pomFile) == 0) {
+                return false;
             }
 
-            for (Dependency childDependency : childDependencies.get()) {
-                if (collector.hasScannedDependency(childDependency)) {
-                    continue;
-                }
-
-                if (!childDependency.isBom()) {
-                    findAllChildren(collector, childDependency);
-                }
-            }
-
-            break;
+            String content = Files.readString(pomFile);
+            return content.trim().startsWith("<?xml") && content.contains("<project");
+        } catch (Exception e) {
+            return false;
         }
-
-        return collector;
     }
 
     /**
-     * Attempts to read dependencies from a POM file in the given repository.
+     * Parses a POM file to extract dependencies.
      */
     @NotNull
-    private Optional<List<Dependency>> tryReadDependencies(@NotNull Dependency dependency, @NotNull Repository repository) {
-        try {
-            File pomFile = downloadPomToLocalRepository(dependency, repository);
-            List<Dependency> dependencies = parsePomFile(pomFile);
-            return Optional.of(dependencies);
-
-        } catch (IOException | SAXException | ParserConfigurationException | URISyntaxException e) {
-            // Log at debug level - this is expected when POM doesn't exist in repository
-            return Optional.empty();
-        }
-    }
-
-    /**
-     * Downloads a POM file to the local repository cache.
-     */
-    @NotNull
-    private File downloadPomToLocalRepository(@NotNull Dependency dependency, @NotNull Repository repository)
-            throws URISyntaxException, IOException {
-
-        // Create local file path based on dependency coordinates
-        File localPomFile = createLocalPomFile(dependency);
-
-        // Return existing file if it's valid
-        if (localPomFile.exists() && !isEmptyFile(localPomFile)) {
-            return localPomFile;
-        }
-
-        // Download from repository
-        URL pomUrl = createPomUrl(dependency, repository);
-        downloadFile(pomUrl, localPomFile);
-
-        return localPomFile;
-    }
-
-    /**
-     * Creates the local file path for a POM based on dependency coordinates.
-     */
-    @NotNull
-    private File createLocalPomFile(@NotNull Dependency dependency) throws URISyntaxException {
-        String pomPath = dependency.getGroupId().replace('.', '/') + '/' +
-                dependency.getArtifactId() + '/' +
-                dependency.getVersion() + '/' +
-                dependency.getArtifactId() + '-' + dependency.getVersion() + ".pom";
-
-        if (localRepository instanceof org.bxteam.quark.repository.LocalRepository localRepo) {
-            return localRepo.resolve(pomPath).toFile();
-        } else {
-            // Handle generic repository
-            return new File(localRepository.getUrl() + "/" + pomPath);
-        }
-    }
-
-    /**
-     * Creates the URL for a POM file in a repository.
-     */
-    @NotNull
-    private URL createPomUrl(@NotNull Dependency dependency, @NotNull Repository repository) throws IOException {
-        String pomPath = dependency.getGroupId().replace('.', '/') + '/' +
-                dependency.getArtifactId() + '/' +
-                dependency.getVersion() + '/' +
-                dependency.getArtifactId() + '-' + dependency.getVersion() + ".pom";
-
-        return new URL(repository.getArtifactUrl(pomPath));
-    }
-
-    /**
-     * Downloads a file from URL to local path.
-     */
-    private void downloadFile(@NotNull URL url, @NotNull File targetFile) throws IOException {
-        // Ensure parent directories exist
-        File parentDir = targetFile.getParentFile();
-        if (parentDir != null && !parentDir.exists()) {
-            Files.createDirectories(parentDir.toPath());
-        }
-
-        // Download the file
-        try (InputStream inputStream = url.openStream()) {
-            Files.copy(inputStream, targetFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-        }
-    }
-
-    /**
-     * Checks if a file is empty or effectively empty.
-     */
-    private boolean isEmptyFile(@NotNull File file) {
-        try {
-            return Files.size(file.toPath()) == 0;
-        } catch (IOException e) {
-            return true; // Treat as empty if we can't read it
-        }
-    }
-
-    /**
-     * Parses a POM file and extracts dependencies.
-     */
-    @NotNull
-    private List<Dependency> parsePomFile(@NotNull File pomFile)
-            throws ParserConfigurationException, IOException, SAXException {
-
-        DocumentBuilder builder = DOCUMENT_BUILDER_FACTORY.newDocumentBuilder();
-        Document document = builder.parse(pomFile);
-
-        Element rootElement = document.getDocumentElement();
-        PomXmlProperties properties = PomXmlProperties.from(rootElement);
-
-        List<Dependency> allDependencies = new ArrayList<>();
-
-        // Read BOM dependencies first (they might affect regular dependencies)
-        allDependencies.addAll(readBomDependencies(rootElement, properties));
-
-        // Read regular dependencies
-        allDependencies.addAll(readRegularDependencies(rootElement, properties));
-
-        return Collections.unmodifiableList(allDependencies);
-    }
-
-    /**
-     * Reads regular dependencies from the dependencies section.
-     */
-    @NotNull
-    private List<Dependency> readRegularDependencies(@NotNull Element root, @NotNull PomXmlProperties properties) {
-        Element dependenciesElement = (Element) XmlUtil.getChildNode(root, "dependencies");
-        if (dependenciesElement == null) {
-            return Collections.emptyList();
-        }
-
-        NodeList dependencyNodes = dependenciesElement.getElementsByTagName("dependency");
+    private List<Dependency> parsePomFile(@NotNull Path pomFile) throws Exception {
         List<Dependency> dependencies = new ArrayList<>();
 
-        for (int i = 0; i < dependencyNodes.getLength(); i++) {
-            Element dependencyElement = (Element) dependencyNodes.item(i);
+        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        DocumentBuilder builder = factory.newDocumentBuilder();
 
-            Optional<Dependency> dependency = parseDependencyElement(dependencyElement, properties);
-            dependency.ifPresent(dependencies::add);
+        try (InputStream inputStream = Files.newInputStream(pomFile)) {
+            Document document = builder.parse(inputStream);
+
+            XPath xpath = XPathFactory.newInstance().newXPath();
+            NodeList dependencyNodes = (NodeList) xpath.evaluate(
+                    "//project/dependencies/dependency",
+                    document,
+                    XPathConstants.NODESET
+            );
+
+            for (int i = 0; i < dependencyNodes.getLength(); i++) {
+                Node dependencyNode = dependencyNodes.item(i);
+
+                try {
+                    Dependency dep = parseDependencyNode(dependencyNode);
+                    if (dep != null && shouldIncludeDependency(dependencyNode)) {
+                        dependencies.add(dep);
+                    }
+                } catch (Exception e) {
+                    System.err.println("Warning: Skipping invalid dependency entry in " + pomFile + ": " + e.getMessage());
+                }
+            }
         }
 
         return dependencies;
     }
 
     /**
-     * Reads BOM dependencies from dependency management section.
+     * Parses a single dependency node.
      */
-    @NotNull
-    private List<Dependency> readBomDependencies(@NotNull Element root, @NotNull PomXmlProperties properties) {
-        Element dependencyManagementElement = (Element) XmlUtil.getChildNode(root, "dependencyManagement");
-        if (dependencyManagementElement == null) {
-            return Collections.emptyList();
-        }
+    @Nullable
+    private Dependency parseDependencyNode(@NotNull Node dependencyNode) throws Exception {
+        String groupId = getChildNodeText(dependencyNode, "groupId");
+        String artifactId = getChildNodeText(dependencyNode, "artifactId");
+        String version = getChildNodeText(dependencyNode, "version");
 
-        Element dependenciesElement = (Element) XmlUtil.getChildNode(dependencyManagementElement, "dependencies");
-        if (dependenciesElement == null) {
-            return Collections.emptyList();
-        }
-
-        NodeList dependencyNodes = dependenciesElement.getElementsByTagName("dependency");
-        List<Dependency> bomDependencies = new ArrayList<>();
-
-        for (int i = 0; i < dependencyNodes.getLength(); i++) {
-            Element dependencyElement = (Element) dependencyNodes.item(i);
-
-            String scope = XmlUtil.getElementContent(dependencyElement, "scope");
-            if (!isAcceptedScope(scope)) {
-                continue;
-            }
-
-            Optional<Dependency> dependency = parseDependencyElement(dependencyElement, properties);
-            if (dependency.isEmpty()) {
-                continue;
-            }
-
-            Dependency bomDependency = dependency.get().asBom();
-
-            // Handle BOM imports
-            if ("import".equals(scope)) {
-                bomDependencies.addAll(readImportedBomDependencies(bomDependency));
-            }
-
-            bomDependencies.add(bomDependency);
-        }
-
-        return bomDependencies;
-    }
-
-    /**
-     * Parses a single dependency element.
-     */
-    @NotNull
-    private Optional<Dependency> parseDependencyElement(@NotNull Element dependencyElement, @NotNull PomXmlProperties properties) {
-        String groupId = XmlUtil.getElementContent(dependencyElement, "groupId");
-        String artifactId = XmlUtil.getElementContent(dependencyElement, "artifactId");
-        String version = XmlUtil.getElementContent(dependencyElement, "version");
-
-        // Skip if required fields are missing
         if (groupId == null || artifactId == null || version == null) {
-            return Optional.empty();
+            return null;
         }
 
-        // Check scope
-        String scope = XmlUtil.getElementContent(dependencyElement, "scope");
-        if (!isAcceptedScope(scope)) {
-            return Optional.empty();
+        if (version.startsWith("${") && version.endsWith("}")) {
+            System.err.println("Warning: Skipping dependency with unresolved version property: " +
+                    groupId + ":" + artifactId + ":" + version);
+            return null;
         }
 
-        // Skip optional dependencies
-        String optional = XmlUtil.getElementContent(dependencyElement, "optional");
-        if (XmlUtil.parseBoolean(optional)) {
-            return Optional.empty();
-        }
-
-        // Resolve properties in version
-        String resolvedVersion = properties.resolveProperties(version);
-        if (resolvedVersion == null) {
-            return Optional.empty(); // Could not resolve version
-        }
-
-        return Optional.of(Dependency.of(groupId, artifactId, resolvedVersion));
+        return Dependency.of(groupId, artifactId, version);
     }
 
     /**
-     * Reads dependencies from an imported BOM.
+     * Checks if a dependency should be included based on scope and optional flag.
      */
-    @NotNull
-    private List<Dependency> readImportedBomDependencies(@NotNull Dependency bomDependency) {
-        for (Repository repository : repositories) {
-            Optional<List<Dependency>> bomDependencies = tryReadDependencies(bomDependency, repository);
+    private boolean shouldIncludeDependency(@NotNull Node dependencyNode) {
+        String scope = getChildNodeText(dependencyNode, "scope");
+        String optional = getChildNodeText(dependencyNode, "optional");
 
-            if (bomDependencies.isPresent()) {
-                return bomDependencies.get().stream()
-                        .map(Dependency::asBom)
-                        .toList();
+        if ("test".equals(scope) || "provided".equals(scope)) {
+            return false;
+        }
+
+        if ("true".equals(optional)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Gets text content of a child node.
+     */
+    @Nullable
+    private String getChildNodeText(@NotNull Node parentNode, @NotNull String childName) {
+        NodeList childNodes = parentNode.getChildNodes();
+        for (int i = 0; i < childNodes.getLength(); i++) {
+            Node childNode = childNodes.item(i);
+            if (childNode.getNodeType() == Node.ELEMENT_NODE &&
+                    childName.equals(childNode.getNodeName())) {
+                return childNode.getTextContent().trim();
             }
         }
-
-        return Collections.emptyList();
+        return null;
     }
 
     /**
-     * Checks if a scope is accepted for processing.
+     * Clears the processed dependencies cache.
+     * This should be called when starting a new dependency resolution process.
      */
-    private static boolean isAcceptedScope(@NotNull String scope) {
-        return scope == null || ACCEPTED_SCOPES.contains(scope);
+    public void clearCache() {
+        processedDependencies.clear();
+    }
+
+    /**
+     * Gets the number of processed dependencies.
+     *
+     * @return the number of dependencies that have been processed
+     */
+    public int getProcessedCount() {
+        return processedDependencies.size();
     }
 
     @Override
@@ -368,19 +236,7 @@ public class PomXmlScanner implements DependencyScanner {
         return "PomXmlScanner{" +
                 "repositories=" + repositories.size() +
                 ", localRepository=" + localRepository +
+                ", processed=" + processedDependencies.size() +
                 '}';
-    }
-
-    /**
-     * Exception thrown when POM scanning operations fail.
-     */
-    public static class PomScannerException extends RuntimeException {
-        public PomScannerException(String message) {
-            super(message);
-        }
-
-        public PomScannerException(String message, Throwable cause) {
-            super(message, cause);
-        }
     }
 }

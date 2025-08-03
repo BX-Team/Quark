@@ -25,7 +25,6 @@ import static java.util.Objects.requireNonNull;
  * </ul>
  */
 abstract class URLClassLoaderAccessor {
-
     /**
      * Creates an appropriate accessor for the given URLClassLoader.
      *
@@ -37,17 +36,14 @@ abstract class URLClassLoaderAccessor {
     public static URLClassLoaderAccessor create(@NotNull URLClassLoader classLoader) {
         requireNonNull(classLoader, "Class loader cannot be null");
 
-        // Try reflection-based approach first (works on most Java versions)
         if (ReflectionURLClassLoaderAccessor.isSupported()) {
             return new ReflectionURLClassLoaderAccessor(classLoader);
         }
 
-        // Try unsafe-based approach (Java 9+)
         if (UnsafeURLClassLoaderAccessor.isSupported()) {
             return new UnsafeURLClassLoaderAccessor(classLoader);
         }
 
-        // Fallback to no-op implementation
         return new NoopURLClassLoaderAccessor(classLoader);
     }
 
@@ -113,7 +109,6 @@ abstract class URLClassLoaderAccessor {
      * Reflection-based accessor that uses the addURL method.
      */
     private static class ReflectionURLClassLoaderAccessor extends URLClassLoaderAccessor {
-
         private static final Method ADD_URL_METHOD = initializeAddUrlMethod();
 
         /**
@@ -197,16 +192,12 @@ abstract class URLClassLoaderAccessor {
             Collection<URL> pathURLs = null;
 
             try {
-                // Access the URLClassPath instance
                 Object urlClassPath = getFieldValue(URLClassLoader.class, classLoader, "ucp");
 
-                // Access the internal URL collections
                 unopenedURLs = (Collection<URL>) getFieldValue(urlClassPath.getClass(), urlClassPath, "unopenedUrls");
                 pathURLs = (Collection<URL>) getFieldValue(urlClassPath.getClass(), urlClassPath, "path");
 
-            } catch (Exception e) {
-                // Fields not accessible, accessor will be non-functional
-            }
+            } catch (Exception e) { }
 
             this.unopenedURLs = unopenedURLs;
             this.pathURLs = pathURLs;
@@ -231,7 +222,6 @@ abstract class URLClassLoaderAccessor {
                 throwAccessError(new IllegalStateException("Unsafe accessor not properly initialized"));
             }
 
-            // Synchronize on the collections to ensure thread safety
             synchronized (unopenedURLs) {
                 unopenedURLs.add(url);
                 pathURLs.add(url);
@@ -244,7 +234,6 @@ abstract class URLClassLoaderAccessor {
      * Used as a fallback when no other accessor can be created.
      */
     private static class NoopURLClassLoaderAccessor extends URLClassLoaderAccessor {
-
         NoopURLClassLoaderAccessor(@NotNull URLClassLoader classLoader) {
             super(classLoader);
         }

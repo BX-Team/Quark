@@ -81,7 +81,6 @@ public class IsolatedClassAccessorLoader implements IsolatedClassLoader {
 
     @Override
     public int getPathCount() {
-        // URLClassLoader.getURLs() returns current URLs
         try {
             return classLoader.getURLs().length;
         } catch (Exception e) {

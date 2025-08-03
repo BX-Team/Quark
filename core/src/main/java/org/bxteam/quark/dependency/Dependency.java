@@ -96,8 +96,6 @@ public final class Dependency {
         return new Dependency(sanitizedGroupId, sanitizedArtifactId, sanitizedVersion, false, classifier);
     }
 
-    // Getters
-
     @NotNull
     public String getGroupId() {
         return groupId;
@@ -159,8 +157,6 @@ public final class Dependency {
     public boolean hasClassifier() {
         return classifier != null && !classifier.trim().isEmpty();
     }
-
-    // Resource creation methods
 
     /**
      * Creates a resource locator for the JAR file in the given repository.
@@ -225,8 +221,6 @@ public final class Dependency {
 
         return ResourceLocator.fromURI(url);
     }
-
-    // Version comparison methods
 
     /**
      * Checks if this dependency has a newer version than the given dependency.
@@ -328,8 +322,6 @@ public final class Dependency {
         }
     }
 
-    // BOM methods
-
     /**
      * Creates a copy of this dependency marked as not being a BOM.
      *
@@ -350,8 +342,6 @@ public final class Dependency {
         return new Dependency(groupId, artifactId, version, true, classifier);
     }
 
-    // Validation
-
     /**
      * Validates that the version doesn't contain unresolved property placeholders.
      */
@@ -360,8 +350,6 @@ public final class Dependency {
             throw new IllegalArgumentException("Version contains unresolved property placeholder: " + version);
         }
     }
-
-    // Object methods
 
     @Override
     public boolean equals(Object obj) {
