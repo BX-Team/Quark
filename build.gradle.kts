@@ -1,19 +1,62 @@
 plugins {
-    id("java")
+    `java-library`
+    `maven-publish`
 }
 
-group = "org.bxteam"
-version = "1.0-SNAPSHOT"
+allprojects {
+    group = project.group
+    version = project.version
 
-repositories {
-    mavenCentral()
+    repositories {
+        mavenCentral()
+    }
 }
 
-dependencies {
-    testImplementation(platform("org.junit:junit-bom:5.10.0"))
-    testImplementation("org.junit.jupiter:junit-jupiter")
-}
+subprojects {
+    apply(plugin = "java-library")
+    apply(plugin = "maven-publish")
 
-tasks.test {
-    useJUnitPlatform()
+    dependencies {
+        compileOnly("org.jetbrains:annotations:24.0.1")
+    }
+
+    java {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+
+        withJavadocJar()
+        withSourcesJar()
+    }
+
+    tasks.withType<Javadoc> {
+        (options as StandardJavadocDocletOptions).apply {
+            encoding = Charsets.UTF_8.name()
+            use()
+            tags("apiNote:a:API Note:")
+        }
+    }
+
+    publishing {
+        repositories {
+            maven {
+                name = "quark"
+                url = uri("https://repo.bxteam.org/releases/")
+
+                if (version.toString().endsWith("-SNAPSHOT")) {
+                    url = uri("https://repo.bxteam.org/snapshots/")
+                }
+
+                credentials.username = System.getenv("REPO_USERNAME")
+                credentials.password = System.getenv("REPO_PASSWORD")
+            }
+        }
+        publications {
+            create<MavenPublication>("maven") {
+                groupId = project.group.toString()
+                artifactId = "quark"
+                version = project.version.toString()
+                from(components["java"])
+            }
+        }
+    }
 }
