@@ -50,10 +50,5 @@ public class TestPlugin extends JavaPlugin {
             this.world = world;
             this.number = number;
         }
-
-        @Override
-        public String toString() {
-            return "TestData{hello='" + hello + "', world='" + world + "', number=" + number + "}";
-        }
     }
 }

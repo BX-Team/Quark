@@ -2,6 +2,7 @@ package org.bxteam.quark.pom;
 
 import org.bxteam.quark.dependency.Dependency;
 import org.bxteam.quark.dependency.DependencyCollector;
+import org.bxteam.quark.dependency.DependencyException;
 import org.bxteam.quark.repository.LocalRepository;
 import org.bxteam.quark.repository.Repository;
 import org.jetbrains.annotations.NotNull;
@@ -9,8 +10,10 @@ import org.jetbrains.annotations.Nullable;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.xpath.XPath;
 import javax.xml.xpath.XPathConstants;
+import javax.xml.xpath.XPathExpressionException;
 import javax.xml.xpath.XPathFactory;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -23,24 +26,31 @@ import java.util.Set;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
+import org.xml.sax.SAXException;
 
 import static java.util.Objects.requireNonNull;
 
 /**
  * Scans POM XML files to find transitive dependencies.
- *
- * <p>This implementation reads POM files from the local repository
- * (downloaded by DependencyDownloader) and parses them to discover
- * transitive dependencies.</p>
  */
 public class PomXmlScanner implements DependencyScanner {
     private final List<Repository> repositories;
     private final LocalRepository localRepository;
     private final Set<String> processedDependencies = new HashSet<>();
+    private final Set<String> currentlyProcessing = new HashSet<>();
+
+    private final DocumentBuilderFactory documentBuilderFactory;
+    private final XPathFactory xPathFactory;
 
     public PomXmlScanner(@NotNull List<Repository> repositories, @NotNull LocalRepository localRepository) {
         this.repositories = new ArrayList<>(requireNonNull(repositories, "Repositories cannot be null"));
         this.localRepository = requireNonNull(localRepository, "Local repository cannot be null");
+
+        this.documentBuilderFactory = DocumentBuilderFactory.newInstance();
+        this.documentBuilderFactory.setNamespaceAware(false);
+        this.documentBuilderFactory.setValidating(false);
+
+        this.xPathFactory = XPathFactory.newInstance();
     }
 
     @Override
@@ -54,28 +64,34 @@ public class PomXmlScanner implements DependencyScanner {
             return;
         }
 
-        if (collector.hasScannedDependency(dependency)) {
+        if (currentlyProcessing.contains(dependencyKey)) {
             return;
         }
 
-        processedDependencies.add(dependencyKey);
-
-        collector.addScannedDependency(dependency);
-
-        Path pomFile = findPomFile(dependency);
-        if (pomFile == null) {
-            return;
-        }
+        currentlyProcessing.add(dependencyKey);
 
         try {
-            List<Dependency> transitiveDependencies = parsePomFile(pomFile);
+            if (!collector.hasScannedDependency(dependency)) {
+                collector.addScannedDependency(dependency);
+            }
+
+            Path pomFile = findPomFile(dependency);
+            if (pomFile == null) {
+                return;
+            }
+
+            List<Dependency> transitiveDependencies = parsePomFile(pomFile, dependency);
 
             for (Dependency transitiveDep : transitiveDependencies) {
-                findAllChildren(collector, transitiveDep);
+                if (!collector.hasScannedDependency(transitiveDep)) {
+                    collector.addScannedDependency(transitiveDep);
+                }
             }
 
         } catch (Exception e) {
-            System.err.println("Warning: Failed to parse POM file for " + dependency + ": " + e.getMessage());
+        } finally {
+            processedDependencies.add(dependencyKey);
+            currentlyProcessing.remove(dependencyKey);
         }
     }
 
@@ -89,7 +105,7 @@ public class PomXmlScanner implements DependencyScanner {
 
     @Override
     public String getDescription() {
-        return "POM XML Scanner (supports Maven POM files)";
+        return "POM XML Scanner (supports Maven POM files with transitive dependencies)";
     }
 
     /**
@@ -114,8 +130,19 @@ public class PomXmlScanner implements DependencyScanner {
                 return false;
             }
 
-            String content = Files.readString(pomFile);
-            return content.trim().startsWith("<?xml") && content.contains("<project");
+            String content = Files.readString(pomFile).trim();
+
+            if (content.isEmpty()) {
+                return false;
+            }
+
+            boolean hasValidXmlStructure = content.contains("<") && content.contains(">");
+            boolean hasProjectTag = content.contains("<project") || content.contains("<project>");
+            boolean isNotHtmlError = !content.toLowerCase().contains("<html") &&
+                    !content.toLowerCase().contains("<!doctype html");
+
+            return hasValidXmlStructure && hasProjectTag && isNotHtmlError;
+
         } catch (Exception e) {
             return false;
         }
@@ -125,34 +152,58 @@ public class PomXmlScanner implements DependencyScanner {
      * Parses a POM file to extract dependencies.
      */
     @NotNull
-    private List<Dependency> parsePomFile(@NotNull Path pomFile) throws Exception {
+    private List<Dependency> parsePomFile(@NotNull Path pomFile, @NotNull Dependency parentDependency) throws Exception {
         List<Dependency> dependencies = new ArrayList<>();
 
-        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-        DocumentBuilder builder = factory.newDocumentBuilder();
+        DocumentBuilder builder;
+        try {
+            builder = documentBuilderFactory.newDocumentBuilder();
+        } catch (ParserConfigurationException e) {
+            throw new DependencyException("Failed to create XML parser", e);
+        }
 
+        Document document;
         try (InputStream inputStream = Files.newInputStream(pomFile)) {
-            Document document = builder.parse(inputStream);
+            document = builder.parse(inputStream);
+        } catch (SAXException e) {
+            throw new DependencyException("Failed to parse POM XML for " + parentDependency, e);
+        }
 
-            XPath xpath = XPathFactory.newInstance().newXPath();
-            NodeList dependencyNodes = (NodeList) xpath.evaluate(
+        XPath xpath = xPathFactory.newXPath();
+        NodeList dependencyNodes;
+
+        try {
+            String[] xpathExpressions = {
+                    "//dependencies/dependency",
                     "//project/dependencies/dependency",
-                    document,
-                    XPathConstants.NODESET
-            );
+                    "/project/dependencies/dependency"
+            };
 
-            for (int i = 0; i < dependencyNodes.getLength(); i++) {
-                Node dependencyNode = dependencyNodes.item(i);
-
-                try {
-                    Dependency dep = parseDependencyNode(dependencyNode);
-                    if (dep != null && shouldIncludeDependency(dependencyNode)) {
-                        dependencies.add(dep);
-                    }
-                } catch (Exception e) {
-                    System.err.println("Warning: Skipping invalid dependency entry in " + pomFile + ": " + e.getMessage());
+            dependencyNodes = null;
+            for (String expression : xpathExpressions) {
+                dependencyNodes = (NodeList) xpath.evaluate(expression, document, XPathConstants.NODESET);
+                if (dependencyNodes.getLength() > 0) {
+                    break;
                 }
             }
+
+            if (dependencyNodes == null || dependencyNodes.getLength() == 0) {
+                return dependencies;
+            }
+
+        } catch (XPathExpressionException e) {
+            throw new DependencyException("Failed to evaluate XPath expression", e);
+        }
+
+        for (int i = 0; i < dependencyNodes.getLength(); i++) {
+            Node dependencyNode = dependencyNodes.item(i);
+
+            try {
+                Dependency dep = parseDependencyNode(dependencyNode, parentDependency);
+                if (dep != null && shouldIncludeDependency(dependencyNode)) {
+                    dependencies.add(dep);
+                }
+            } catch (Exception e) { }
         }
 
         return dependencies;
@@ -162,18 +213,20 @@ public class PomXmlScanner implements DependencyScanner {
      * Parses a single dependency node.
      */
     @Nullable
-    private Dependency parseDependencyNode(@NotNull Node dependencyNode) throws Exception {
+    private Dependency parseDependencyNode(@NotNull Node dependencyNode, @NotNull Dependency parentDependency) {
         String groupId = getChildNodeText(dependencyNode, "groupId");
         String artifactId = getChildNodeText(dependencyNode, "artifactId");
         String version = getChildNodeText(dependencyNode, "version");
 
-        if (groupId == null || artifactId == null || version == null) {
+        if (groupId == null || artifactId == null) {
+            return null;
+        }
+
+        if (version == null || version.isEmpty()) {
             return null;
         }
 
         if (version.startsWith("${") && version.endsWith("}")) {
-            System.err.println("Warning: Skipping dependency with unresolved version property: " +
-                    groupId + ":" + artifactId + ":" + version);
             return null;
         }
 
@@ -187,15 +240,15 @@ public class PomXmlScanner implements DependencyScanner {
         String scope = getChildNodeText(dependencyNode, "scope");
         String optional = getChildNodeText(dependencyNode, "optional");
 
-        if ("test".equals(scope) || "provided".equals(scope)) {
+        if (scope == null || scope.isEmpty()) {
+            scope = "compile";
+        }
+
+        if (!"compile".equals(scope) && !"runtime".equals(scope)) {
             return false;
         }
 
-        if ("true".equals(optional)) {
-            return false;
-        }
-
-        return true;
+        return !"true".equals(optional);
     }
 
     /**
@@ -208,7 +261,8 @@ public class PomXmlScanner implements DependencyScanner {
             Node childNode = childNodes.item(i);
             if (childNode.getNodeType() == Node.ELEMENT_NODE &&
                     childName.equals(childNode.getNodeName())) {
-                return childNode.getTextContent().trim();
+                String text = childNode.getTextContent();
+                return text != null ? text.trim() : null;
             }
         }
         return null;
@@ -220,6 +274,7 @@ public class PomXmlScanner implements DependencyScanner {
      */
     public void clearCache() {
         processedDependencies.clear();
+        currentlyProcessing.clear();
     }
 
     /**

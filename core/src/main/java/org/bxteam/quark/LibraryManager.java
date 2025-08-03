@@ -15,6 +15,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.InputStream;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
@@ -104,7 +105,7 @@ public abstract class LibraryManager implements AutoCloseable {
      * Checks if a URL is Maven Central.
      */
     private boolean isMavenCentralUrl(@NotNull String url) {
-        return url.equals(Repositories.MAVEN_CENTRAL) || url.equals("https://repo1.maven.org/maven2");
+        return url.equals(Repositories.MAVEN_CENTRAL) || url.equals("https://repo1.maven.org/maven2/");
     }
 
     /**
@@ -178,9 +179,9 @@ public abstract class LibraryManager implements AutoCloseable {
 
         try {
             logger.info("Resolving dependencies...");
-            DependencyCollector collector = resolveTransitiveDependencies(dependencies);
-            Collection<Dependency> resolvedDependencies = collector.getScannedDependencies();
-            logger.info("Resolved " + resolvedDependencies.size() + " dependencies");
+            DependencyCollector collector = resolveTransitiveDependenciesIteratively(dependencies);
+            Collection<Dependency> allResolvedDependencies = collector.getScannedDependencies();
+            logger.info("Resolved " + allResolvedDependencies.size() + " dependencies");
 
             List<DependencyLoadEntry> loadEntries = downloadAndRelocateDependencies(collector, relocations);
 
@@ -212,10 +213,10 @@ public abstract class LibraryManager implements AutoCloseable {
         Instant startTime = Instant.now();
 
         try {
-            logger.info("Resolving dependencies...");
-            DependencyCollector collector = resolveTransitiveDependencies(dependencies);
-            Collection<Dependency> resolvedDependencies = collector.getScannedDependencies();
-            logger.info("Resolved " + resolvedDependencies.size() + " dependencies");
+            logger.info("Resolving dependencies for isolated class loader...");
+            DependencyCollector collector = resolveTransitiveDependenciesIteratively(dependencies);
+            Collection<Dependency> allResolvedDependencies = collector.getScannedDependencies();
+            logger.info("Resolved " + allResolvedDependencies.size() + " dependencies");
 
             List<DependencyLoadEntry> loadEntries = downloadAndRelocateDependencies(collector, relocations);
 
@@ -225,13 +226,80 @@ public abstract class LibraryManager implements AutoCloseable {
             }
 
             Duration elapsed = Duration.between(startTime, Instant.now());
-            logger.info("Loaded " + loadEntries.size() + " dependencies in " + elapsed.toMillis() + " ms");
-
+            logger.info("Loaded " + loadEntries.size() + " dependencies into isolated class loader in " + elapsed.toMillis() + " ms");
         } catch (Exception e) {
             Duration elapsed = Duration.between(startTime, Instant.now());
-            logger.error("Failed to load dependencies after " + elapsed.toMillis() + " ms: " + e.getMessage());
+            logger.error("Failed to load dependencies into isolated class loader after " + elapsed.toMillis() + " ms: " + e.getMessage());
             throw new LibraryLoadException("Failed to load dependencies", e);
         }
+    }
+
+    /**
+     * Resolves transitive dependencies iteratively until no new dependencies are found.
+     */
+    @NotNull
+    private DependencyCollector resolveTransitiveDependenciesIteratively(@NotNull Collection<Dependency> rootDependencies) {
+        if (dependencyScanner instanceof PomXmlScanner) {
+            ((PomXmlScanner) dependencyScanner).clearCache();
+        }
+
+        DependencyCollector collector = new DependencyCollector();
+        Set<Dependency> toProcess = new HashSet<>(rootDependencies);
+        Set<Dependency> fullyProcessed = new HashSet<>();
+
+        int iteration = 1;
+
+        while (!toProcess.isEmpty()) {
+            logger.debug("Dependency resolution iteration " + iteration + ": Processing " + toProcess.size() + " dependencies");
+
+            Set<Dependency> currentBatch = new HashSet<>(toProcess);
+            toProcess.clear();
+
+            for (Dependency dependency : currentBatch) {
+                if (fullyProcessed.contains(dependency)) {
+                    continue;
+                }
+
+                try {
+                    dependencyDownloader.downloadDependency(dependency);
+                    collector.addScannedDependency(dependency);
+                } catch (Exception e) {
+                    logger.error("Failed to download dependency: " + dependency + " - " + e.getMessage());
+                    collector.addScannedDependency(dependency);
+                }
+            }
+
+            for (Dependency dependency : currentBatch) {
+                if (fullyProcessed.contains(dependency)) {
+                    continue;
+                }
+
+                try {
+                    DependencyCollector tempCollector = new DependencyCollector();
+                    dependencyScanner.findAllChildren(tempCollector, dependency);
+
+                    for (Dependency newDep : tempCollector.getScannedDependencies()) {
+                        if (!newDep.equals(dependency) && !fullyProcessed.contains(newDep) && !collector.hasScannedDependency(newDep)) {
+                            toProcess.add(newDep);
+                        }
+                    }
+
+                    fullyProcessed.add(dependency);
+                } catch (Exception e) {
+                    logger.warn("Failed to scan POM for " + dependency + ": " + e.getMessage());
+                    fullyProcessed.add(dependency);
+                }
+            }
+
+            iteration++;
+
+            if (iteration > 20) {
+                logger.warn("Maximum dependency resolution iterations reached. Stopping to prevent infinite loop.");
+                break;
+            }
+        }
+
+        return collector;
     }
 
     @NotNull
@@ -248,9 +316,13 @@ public abstract class LibraryManager implements AutoCloseable {
                 continue;
             }
 
-            Path downloadedPath = dependencyDownloader.downloadDependency(dependency);
+            Path jarPath = dependency.toMavenJar(localRepository).toPath();
+            if (!Files.exists(jarPath)) {
+                logger.warn("JAR file not found for dependency (re-downloading): " + dependency);
+                jarPath = dependencyDownloader.downloadDependency(dependency);
+            }
 
-            Path finalPath = applyRelocations(dependency, downloadedPath, relocations);
+            Path finalPath = applyRelocations(dependency, jarPath, relocations);
 
             loadEntries.add(new DependencyLoadEntry(dependency, finalPath));
         }
@@ -273,21 +345,6 @@ public abstract class LibraryManager implements AutoCloseable {
         }
 
         return relocationHandler.relocateDependency(localRepository, jarPath, dependency, relocations);
-    }
-
-    private DependencyCollector resolveTransitiveDependencies(@NotNull Collection<Dependency> dependencies) {
-        if (dependencyScanner instanceof PomXmlScanner) {
-            ((PomXmlScanner) dependencyScanner).clearCache();
-        }
-
-        DependencyCollector collector = new DependencyCollector();
-        collector.addScannedDependencies(dependencies);
-
-        for (Dependency dependency : dependencies) {
-            dependencyScanner.findAllChildren(collector, dependency);
-        }
-
-        return collector;
     }
 
     @NotNull

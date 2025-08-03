@@ -54,10 +54,10 @@ public class DependencyDownloader {
         boolean pomExists = Files.exists(localPomPath) && isValidPomFile(localPomPath);
 
         if (jarExists && pomExists) {
-            logger.debug("Using cached dependency with POM: " + dependency);
+            logger.debug("Using cached dependency: " + dependency);
             return localJarPath;
         } else if (jarExists) {
-            logger.debug("Using cached dependency (POM not available): " + dependency);
+            logger.debug("Using cached JAR (POM missing): " + dependency);
             tryDownloadPomOnly(dependency, localPomPath);
             return localJarPath;
         }
@@ -80,8 +80,7 @@ public class DependencyDownloader {
                 return result.jarPath();
             } catch (DependencyException e) {
                 exceptions.add(e);
-                String cleanRepoUrl = getCleanRepositoryUrl(repository);
-                logger.debug("Failed to download " + dependency + " from " + cleanRepoUrl + ": " + e.getMessage());
+                logger.debug("Failed to download " + dependency + " from " + getCleanRepositoryUrl(repository) + ": " + e.getMessage());
             }
         }
 
@@ -103,15 +102,10 @@ public class DependencyDownloader {
 
             try {
                 downloadPomAndSave(repository, dependency, localPomPath);
-                String cleanRepoUrl = getCleanRepositoryUrl(repository);
-                logger.debug("Downloaded POM for cached dependency " + dependency + " from " + cleanRepoUrl);
+                logger.debug("Downloaded POM for cached dependency: " + dependency);
                 return;
-            } catch (Exception e) {
-                logger.debug("Failed to download POM for " + dependency + " from " + repository + ": " + e.getMessage());
-            }
+            } catch (Exception e) { }
         }
-
-        logger.debug("Could not download POM for dependency: " + dependency);
     }
 
     /**
@@ -169,12 +163,6 @@ public class DependencyDownloader {
             saveFile(pomBytes, localFile);
 
             if (!isValidPomFile(localFile)) {
-                try {
-                    String content = Files.readString(localFile);
-                    logger.debug("Downloaded POM content for " + dependency + " (first 200 chars): " +
-                            content.substring(0, Math.min(200, content.length())));
-                } catch (Exception ignored) { }
-
                 throw new DependencyException("Downloaded POM is invalid or corrupted: " + dependency);
             }
         } catch (FileNotFoundException | NoSuchFileException e) {
@@ -184,16 +172,12 @@ public class DependencyDownloader {
         }
     }
 
-    /**
-     * Downloads a file from a URL.
-     */
     @NotNull
     private byte[] downloadFile(@NotNull URL fileUrl, @NotNull String fileType) throws IOException {
         URLConnection connection = fileUrl.openConnection();
 
         connection.setConnectTimeout(30000);
         connection.setReadTimeout(60000);
-
         connection.setRequestProperty("User-Agent", "Quark-LibraryManager/1.0");
 
         logger.debug("Downloading " + fileType + " from: " + fileUrl);
@@ -205,7 +189,6 @@ public class DependencyDownloader {
                 throw new IOException("Empty " + fileType + " file downloaded from: " + fileUrl);
             }
 
-            logger.debug("Downloaded " + bytes.length + " bytes for " + fileType + " from: " + fileUrl);
             return bytes;
         }
     }
@@ -265,35 +248,13 @@ public class DependencyDownloader {
                 return false;
             }
 
-            boolean hasXmlDeclaration = content.startsWith("<?xml");
-            boolean hasProjectTag = content.contains("<project") || content.contains("<project>");
             boolean hasValidXmlStructure = content.contains("<") && content.contains(">");
+            boolean hasProjectTag = content.contains("<project") || content.contains("<project>");
+            boolean isNotHtmlError = !content.toLowerCase().contains("<html") &&
+                    !content.toLowerCase().contains("<!doctype html");
 
-            if (!hasValidXmlStructure) {
-                logger.debug("POM file doesn't have valid XML structure: " + pomFile);
-                return false;
-            }
-
-            if (!hasXmlDeclaration && !hasProjectTag) {
-                logger.debug("POM file doesn't look like a Maven POM (no XML declaration or project tag): " + pomFile);
-
-                String[] lines = content.split("\n", 5);
-                logger.debug("POM content preview:");
-                for (int i = 0; i < Math.min(3, lines.length); i++) {
-                    logger.debug("  Line " + (i + 1) + ": " + lines[i]);
-                }
-
-                return false;
-            }
-
-            if (content.toLowerCase().contains("<html") || content.toLowerCase().contains("<!doctype html")) {
-                logger.debug("POM file appears to be HTML (probably an error page): " + pomFile);
-                return false;
-            }
-
-            return true;
+            return hasValidXmlStructure && hasProjectTag && isNotHtmlError;
         } catch (IOException e) {
-            logger.debug("Error reading POM file " + pomFile + ": " + e.getMessage());
             return false;
         }
     }

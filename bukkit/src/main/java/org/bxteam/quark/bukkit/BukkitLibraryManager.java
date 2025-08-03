@@ -103,13 +103,13 @@ public class BukkitLibraryManager extends LibraryManager {
     }
 
     /**
-     * Loads dependencies with relocations.
+     * Loads dependencies with relocations into the main plugin classpath.
      */
     public void loadDependencies(@NotNull List<Dependency> dependencies, @NotNull List<Relocation> relocations) {
         requireNonNull(dependencies, "Dependencies cannot be null");
         requireNonNull(relocations, "Relocations cannot be null");
 
-        loadDependencies(new BukkitClassLoaderAdapter(classLoaderHelper), dependencies, relocations);
+        super.loadDependencies(dependencies, relocations);
     }
 
     /**
@@ -166,27 +166,5 @@ public class BukkitLibraryManager extends LibraryManager {
                 ", version=" + getPluginVersion() +
                 ", repositories=" + getRepositories().size() +
                 '}';
-    }
-
-    /**
-     * Adapter that allows URLClassLoaderHelper to work with IsolatedClassLoader interface.
-     */
-    private record BukkitClassLoaderAdapter(URLClassLoaderHelper helper) implements IsolatedClassLoader {
-
-        @Override
-        public void addPath(@NotNull Path path) {
-            helper.addToClasspath(path);
-        }
-
-        @Override
-        @NotNull
-        public Class<?> loadClass(@NotNull String className) throws ClassNotFoundException {
-            throw new UnsupportedOperationException("Class loading not supported in Bukkit adapter");
-        }
-
-        @Override
-        public void close() {
-            // URLClassLoaderHelper doesn't need closing
-        }
     }
 }
