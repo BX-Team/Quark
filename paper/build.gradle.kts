@@ -1,16 +1,16 @@
 repositories {
-    maven("https://hub.spigotmc.org/nexus/content/groups/public/")
+    maven("https://repo.papermc.io/repository/maven-public/")
 }
 
 dependencies {
     api(project(":quark-core"))
 
-    compileOnly("org.spigotmc:spigot-api:1.19.4-R0.1-SNAPSHOT")
-    testImplementation("org.spigotmc:spigot-api:1.19.4-R0.1-SNAPSHOT")
+    compileOnly("io.papermc.paper:paper-api:1.19.4-R0.1-SNAPSHOT")
+    testImplementation("io.papermc.paper:paper-api:1.19.4-R0.1-SNAPSHOT")
 }
 
 val buildTestPlugin by tasks.registering(Jar::class) {
-    archiveBaseName.set("QuarkBukkitTest")
+    archiveBaseName.set("QuarkPaperTest")
 
     destinationDirectory.set(file("$buildDir/test-plugin"))
 

@@ -5,7 +5,6 @@ import org.bxteam.quark.classloader.IsolatedClassLoader;
 import org.bxteam.quark.classloader.IsolatedClassLoaderImpl;
 import org.bxteam.quark.classloader.URLClassLoaderHelper;
 import org.bxteam.quark.dependency.Dependency;
-import org.bxteam.quark.logger.LogLevel;
 import org.bxteam.quark.logger.LogAdapter;
 import org.bxteam.quark.logger.adapters.JavaLogAdapter;
 import org.bxteam.quark.relocation.Relocation;
@@ -122,49 +121,10 @@ public class BukkitLibraryManager extends LibraryManager {
     }
 
     /**
-     * Enables detailed logging for debugging dependency issues.
-     */
-    public void enableDebugLogging() {
-        setLogLevel(LogLevel.DEBUG);
-        logger.info("Debug logging enabled for " + plugin.getName());
-    }
-
-    /**
-     * Gets the associated Bukkit plugin.
-     */
-    @NotNull
-    public JavaPlugin getPlugin() {
-        return plugin;
-    }
-
-    /**
      * Gets the plugin's class loader helper.
      */
     @NotNull
     public URLClassLoaderHelper getClassLoaderHelper() {
         return classLoaderHelper;
-    }
-
-    public boolean isPluginEnabled() {
-        return plugin.isEnabled();
-    }
-
-    @NotNull
-    public String getPluginName() {
-        return plugin.getName();
-    }
-
-    @NotNull
-    public String getPluginVersion() {
-        return plugin.getDescription().getVersion();
-    }
-
-    @Override
-    public String toString() {
-        return "BukkitLibraryManager{" +
-                "plugin=" + plugin.getName() +
-                ", version=" + getPluginVersion() +
-                ", repositories=" + getRepositories().size() +
-                '}';
     }
 }

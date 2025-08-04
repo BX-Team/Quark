@@ -1,4 +1,0 @@
-name: TestPlugin
-version: 1.0.0
-main: org.bxteam.test.TestPlugin
-api-version: 1.21

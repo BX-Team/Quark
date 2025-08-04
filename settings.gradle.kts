@@ -3,7 +3,7 @@ rootProject.name = "Quark"
 setOf(
     "bukkit",
     "core",
-    "example"
+    "paper"
 ).forEach {
     subProject(it)
 }
