@@ -6,7 +6,7 @@ dependencies {
     api(project(":quark-core"))
 
     compileOnly("org.spigotmc:spigot-api:1.19.4-R0.1-SNAPSHOT")
-    testImplementation("org.spigotmc:spigot-api:1.19.4-R0.1-SNAPSHOT")
+    testCompileOnly("org.spigotmc:spigot-api:1.19.4-R0.1-SNAPSHOT")
 }
 
 val buildTestPlugin by tasks.registering(Jar::class) {

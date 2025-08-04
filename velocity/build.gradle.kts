@@ -5,12 +5,12 @@ repositories {
 dependencies {
     api(project(":quark-core"))
 
-    compileOnly("io.papermc.paper:paper-api:1.19.4-R0.1-SNAPSHOT")
-    testCompileOnly("io.papermc.paper:paper-api:1.19.4-R0.1-SNAPSHOT")
+    compileOnly("com.velocitypowered:velocity-api:3.4.0-SNAPSHOT")
+    testCompileOnly("com.velocitypowered:velocity-api:3.4.0-SNAPSHOT")
 }
 
 val buildTestPlugin by tasks.registering(Jar::class) {
-    archiveBaseName.set("QuarkPaperTest")
+    archiveBaseName.set("QuarkVelocityTest")
 
     destinationDirectory.set(file("$buildDir/test-plugin"))
 
