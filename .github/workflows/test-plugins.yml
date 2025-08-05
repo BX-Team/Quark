@@ -10,7 +10,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
+    if: "!contains(github.event.commits[0].message, '[ci-skip]')"
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
