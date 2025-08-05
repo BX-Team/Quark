@@ -1,0 +1,4 @@
+name: QuarkBungeeTest
+version: 1.0.0
+main: org.bxteam.quark.bungee.test.BungeeTestPlugin
+author: BX-Team

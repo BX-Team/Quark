@@ -2,6 +2,7 @@ rootProject.name = "Quark"
 
 setOf(
     "bukkit",
+    "bungee",
     "core",
     "paper",
     "velocity"
