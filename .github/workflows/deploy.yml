@@ -1,0 +1,36 @@
+name: Deploy Quark
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  checks: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Make Gradlew executable
+        run: chmod +x ./gradlew
+
+      - name: Publish to BX Team Maven Repository
+        continue-on-error: true
+        run: ./gradlew publish
+        env:
+          REPO_USERNAME: ${{ secrets.REPO_USERNAME }}
+          REPO_PASSWORD: ${{ secrets.REPO_SECRET }}
