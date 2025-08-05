@@ -17,6 +17,7 @@ import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Collections;
 
 import static java.util.Objects.requireNonNull;
 
@@ -30,8 +31,8 @@ import static java.util.Objects.requireNonNull;
  */
 public class RelocationHandler implements AutoCloseable {
     private static final List<Dependency> RELOCATION_DEPENDENCIES = List.of(
-            Dependency.of("org.ow2.asm", "asm", "9.7.1"),
-            Dependency.of("org.ow2.asm", "asm-commons", "9.7.1"),
+            Dependency.of("org.ow2.asm", "asm", "9.7"),
+            Dependency.of("org.ow2.asm", "asm-commons", "9.7"),
             Dependency.of("me.lucko", "jar-relocator", "1.7")
     );
 
@@ -151,6 +152,8 @@ public class RelocationHandler implements AutoCloseable {
         IsolatedClassLoader classLoader = new IsolatedClassLoaderImpl();
 
         try {
+            libraryManager.loadDependencies(classLoader, RELOCATION_DEPENDENCIES, Collections.emptyList());
+
             Class<?> jarRelocatorClass = classLoader.loadClass(JAR_RELOCATOR_CLASS);
 
             Constructor<?> jarRelocatorConstructor = jarRelocatorClass.getDeclaredConstructor(File.class, File.class, Map.class);
