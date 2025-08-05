@@ -1,0 +1,112 @@
+name: Build Test Plugins
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+
+      - name: Build test plugins
+        run: ./gradlew buildTestPlugin
+
+      - name: Create Bukkit test plugin artifact
+        if: always()
+        run: |
+          mkdir -p artifacts/bukkit
+          if [ -d "bukkit/build/test-plugin" ] && [ "$(ls -A bukkit/build/test-plugin/*.jar 2>/dev/null)" ]; then
+            cd bukkit/build/test-plugin
+            zip -r ../../../artifacts/bukkit/QuarkBukkitTestPlugin.zip *.jar
+            cd ../../..
+          else
+            echo "No Bukkit test plugin JARs found"
+          fi
+
+      - name: Create BungeeCord test plugin artifact
+        if: always()
+        run: |
+          mkdir -p artifacts/bungee
+          if [ -d "bungee/build/test-plugin" ] && [ "$(ls -A bungee/build/test-plugin/*.jar 2>/dev/null)" ]; then
+            cd bungee/build/test-plugin
+            zip -r ../../../artifacts/bungee/QuarkBungeeTestPlugin.zip *.jar
+            cd ../../..
+          else
+            echo "No BungeeCord test plugin JARs found"
+          fi
+
+      - name: Create Paper test plugin artifact
+        if: always()
+        run: |
+          mkdir -p artifacts/paper
+          if [ -d "paper/build/test-plugin" ] && [ "$(ls -A paper/build/test-plugin/*.jar 2>/dev/null)" ]; then
+            cd paper/build/test-plugin
+            zip -r ../../../artifacts/paper/QuarkPaperTestPlugin.zip *.jar
+            cd ../../..
+          else
+            echo "No Paper test plugin JARs found"
+          fi
+
+      - name: Create Velocity test plugin artifact
+        if: always()
+        run: |
+          mkdir -p artifacts/velocity
+          if [ -d "velocity/build/test-plugin" ] && [ "$(ls -A velocity/build/test-plugin/*.jar 2>/dev/null)" ]; then
+            cd velocity/build/test-plugin
+            zip -r ../../../artifacts/velocity/QuarkVelocityTestPlugin.zip *.jar
+            cd ../../..
+          else
+            echo "No Velocity test plugin JARs found"
+          fi
+
+      - name: Upload Bukkit test plugin
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: QuarkBukkitTestPlugin
+          path: artifacts/bukkit/QuarkBukkitTestPlugin.zip
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Upload BungeeCord test plugin
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: QuarkBungeeTestPlugin
+          path: artifacts/bungee/QuarkBungeeTestPlugin.zip
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Upload Paper test plugin
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: QuarkPaperTestPlugin
+          path: artifacts/paper/QuarkPaperTestPlugin.zip
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Upload Velocity test plugin
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: QuarkVelocityTestPlugin
+          path: artifacts/velocity/QuarkVelocityTestPlugin.zip
+          if-no-files-found: warn
+          retention-days: 30
