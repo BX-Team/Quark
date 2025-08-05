@@ -15,17 +15,10 @@ import static java.util.Objects.requireNonNull;
 /**
  * Default implementation of {@link IsolatedClassLoader} using {@link URLClassLoader}.
  *
- * <p>This implementation extends URLClassLoader and uses the system class loader's
- * parent (typically the platform class loader) as its parent to provide isolation
- * from application classes while maintaining access to core Java classes.</p>
- *
- * <p>Key features:</p>
- * <ul>
- *   <li>Parallel class loading support</li>
- *   <li>Isolated from application classpath</li>
- *   <li>Thread-safe path addition</li>
- *   <li>Proper resource cleanup</li>
- * </ul>
+ * <p>This class loader is a simple child of {@code URLClassLoader} that uses
+ * the system class loader's parent (typically the platform class loader) as its
+ * parent to provide an unpolluted classpath and isolation from application classes
+ * while maintaining access to core Java classes.</p>
  */
 public class IsolatedClassLoaderImpl extends URLClassLoader implements IsolatedClassLoader {
     static {
@@ -68,6 +61,8 @@ public class IsolatedClassLoaderImpl extends URLClassLoader implements IsolatedC
     /**
      * Gets the appropriate parent class loader for isolation.
      * Uses the system class loader's parent to avoid application classpath pollution.
+     *
+     * @return the isolated parent class loader
      */
     @NotNull
     private static ClassLoader getIsolatedParent() {
@@ -137,6 +132,8 @@ public class IsolatedClassLoaderImpl extends URLClassLoader implements IsolatedC
 
     /**
      * Checks if this class loader has been closed and throws an exception if it has.
+     *
+     * @throws ClassLoaderException if the class loader has been closed
      */
     private void checkNotClosed() {
         if (closed.get()) {

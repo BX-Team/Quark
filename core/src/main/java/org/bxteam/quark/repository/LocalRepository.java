@@ -123,6 +123,10 @@ public class LocalRepository extends Repository {
 
     /**
      * Converts a file system path to a file:// URL string.
+     *
+     * @param path the path to convert
+     * @return the file URL string
+     * @throws RepositoryException if conversion fails
      */
     @NotNull
     private static String convertPathToUrl(@NotNull Path path) {
@@ -144,10 +148,21 @@ public class LocalRepository extends Repository {
      * Exception thrown when repository operations fail.
      */
     public static class RepositoryException extends RuntimeException {
+        /**
+         * Creates a new repository exception with the specified message.
+         *
+         * @param message the detail message
+         */
         public RepositoryException(String message) {
             super(message);
         }
 
+        /**
+         * Creates a new repository exception with the specified message and cause.
+         *
+         * @param message the detail message
+         * @param cause the cause of this exception
+         */
         public RepositoryException(String message, Throwable cause) {
             super(message, cause);
         }

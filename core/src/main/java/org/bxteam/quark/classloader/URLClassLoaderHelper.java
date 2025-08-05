@@ -67,7 +67,7 @@ public class URLClassLoaderHelper {
     /**
      * Gets the accessor type name.
      *
-     * @return the accessor type
+     * @return the accessor type identifier
      */
     @NotNull
     public String getAccessorType() {

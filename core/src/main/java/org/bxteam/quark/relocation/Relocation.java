@@ -13,9 +13,6 @@ import static java.util.Objects.requireNonNull;
  * of the same dependency. This is particularly important in plugin
  * environments where multiple plugins might bundle the same libraries.</p>
  *
- * <p>Example: Relocating {@code com.google.gson} to {@code my.plugin.libs.gson}
- * will transform all references to the Google Gson library to use the new package name.</p>
- *
  * @param pattern the original package pattern to match
  * @param relocatedPattern the new package pattern to replace with
  */
@@ -48,6 +45,7 @@ public record Relocation(@NotNull String pattern, @NotNull String relocatedPatte
      * @param from the source package
      * @param to the target package
      * @return a new Relocation instance
+     * @throws NullPointerException if any parameter is null
      */
     @NotNull
     public static Relocation of(@NotNull String from, @NotNull String to) {
@@ -80,6 +78,8 @@ public record Relocation(@NotNull String pattern, @NotNull String relocatedPatte
 
     /**
      * Builder for creating Relocation instances with additional configuration.
+     *
+     * @since 1.0
      */
     public static final class RelocationBuilder {
         private String pattern;
@@ -92,6 +92,7 @@ public record Relocation(@NotNull String pattern, @NotNull String relocatedPatte
          *
          * @param pattern the source pattern
          * @return this builder
+         * @throws NullPointerException if pattern is null
          */
         @NotNull
         public RelocationBuilder from(@NotNull String pattern) {
@@ -104,6 +105,7 @@ public record Relocation(@NotNull String pattern, @NotNull String relocatedPatte
          *
          * @param relocatedPattern the target pattern
          * @return this builder
+         * @throws NullPointerException if relocatedPattern is null
          */
         @NotNull
         public RelocationBuilder to(@NotNull String relocatedPattern) {

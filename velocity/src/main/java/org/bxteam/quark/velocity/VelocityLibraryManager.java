@@ -38,6 +38,7 @@ public class VelocityLibraryManager<T> extends LibraryManager {
      * @param logger the SLF4J logger from Velocity
      * @param dataDirectory the plugin's data directory
      * @param pluginManager the Velocity plugin manager
+     * @throws NullPointerException if any parameter is null
      */
     public VelocityLibraryManager(@NotNull T plugin,
                                   @NotNull Logger logger,
@@ -54,6 +55,7 @@ public class VelocityLibraryManager<T> extends LibraryManager {
      * @param dataDirectory the plugin's data directory
      * @param pluginManager the Velocity plugin manager
      * @param librariesDirectoryName the name of the directory to store downloaded libraries
+     * @throws NullPointerException if any parameter is null
      */
     public VelocityLibraryManager(@NotNull T plugin,
                                   @NotNull Logger logger,
@@ -71,6 +73,7 @@ public class VelocityLibraryManager<T> extends LibraryManager {
      * @param dataDirectory the plugin's data directory
      * @param pluginManager the Velocity plugin manager
      * @param librariesDirectoryName the name of the directory to store downloaded libraries
+     * @throws NullPointerException if any parameter is null
      */
     public VelocityLibraryManager(@NotNull T plugin,
                                   @NotNull LogAdapter logAdapter,
@@ -121,9 +124,10 @@ public class VelocityLibraryManager<T> extends LibraryManager {
     /**
      * Loads a dependency by Maven coordinates.
      *
-     * @param groupId the group ID
-     * @param artifactId the artifact ID
-     * @param version the version
+     * @param groupId the Maven group ID
+     * @param artifactId the Maven artifact ID
+     * @param version the dependency version
+     * @throws NullPointerException if any parameter is null
      */
     public void loadDependency(@NotNull String groupId, @NotNull String artifactId, @NotNull String version) {
         requireNonNull(groupId, "Group ID cannot be null");
@@ -138,6 +142,7 @@ public class VelocityLibraryManager<T> extends LibraryManager {
      * Loads a single dependency.
      *
      * @param dependency the dependency to load
+     * @throws NullPointerException if dependency is null
      */
     public void loadDependency(@NotNull Dependency dependency) {
         requireNonNull(dependency, "Dependency cannot be null");
@@ -148,6 +153,7 @@ public class VelocityLibraryManager<T> extends LibraryManager {
      * Loads dependencies without relocations.
      *
      * @param dependencies the list of dependencies to load
+     * @throws NullPointerException if dependencies is null
      */
     public void loadDependencies(@NotNull List<Dependency> dependencies) {
         loadDependencies(dependencies, Collections.emptyList());
@@ -158,6 +164,7 @@ public class VelocityLibraryManager<T> extends LibraryManager {
      *
      * @param dependencies the list of dependencies to load
      * @param relocations the list of relocations to apply
+     * @throws NullPointerException if any parameter is null
      */
     public void loadDependencies(@NotNull List<Dependency> dependencies, @NotNull List<Relocation> relocations) {
         requireNonNull(dependencies, "Dependencies cannot be null");
@@ -172,6 +179,7 @@ public class VelocityLibraryManager<T> extends LibraryManager {
      * @param isolatedClassLoader the isolated class loader
      * @param dependencies the list of dependencies to load
      * @param relocations the list of relocations to apply
+     * @throws NullPointerException if any parameter is null
      */
     public void loadDependenciesIsolated(@NotNull IsolatedClassLoader isolatedClassLoader,
                                          @NotNull List<Dependency> dependencies,

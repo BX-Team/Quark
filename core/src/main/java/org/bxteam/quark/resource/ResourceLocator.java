@@ -21,6 +21,11 @@ import static java.util.Objects.requireNonNull;
 public final class ResourceLocator {
     private final URL url;
 
+    /**
+     * Creates a new resource locator with the specified URL.
+     *
+     * @param url the URL of the resource
+     */
     private ResourceLocator(@NotNull URL url) {
         this.url = requireNonNull(url, "URL cannot be null");
     }
@@ -188,12 +193,25 @@ public final class ResourceLocator {
 
     /**
      * Exception thrown when resource operations fail.
+     *
+     * @since 1.0
      */
     public static class ResourceException extends RuntimeException {
+        /**
+         * Creates a new resource exception with the specified message.
+         *
+         * @param message the detail message
+         */
         public ResourceException(String message) {
             super(message);
         }
 
+        /**
+         * Creates a new resource exception with the specified message and cause.
+         *
+         * @param message the detail message
+         * @param cause the cause of this exception
+         */
         public ResourceException(String message, Throwable cause) {
             super(message, cause);
         }

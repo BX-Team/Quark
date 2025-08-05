@@ -22,7 +22,6 @@ import static java.util.Objects.requireNonNull;
  * due to changes in the relocation rules.</p>
  */
 public class RelocationCacheResolver {
-
     private static final String RELOCATIONS_CACHE_FILE = "relocations.txt";
 
     private final LocalRepository localRepository;
@@ -40,15 +39,13 @@ public class RelocationCacheResolver {
     /**
      * Determines whether a dependency should be forcibly relocated.
      *
-     * <p>Returns true if:</p>
-     * <ul>
-     *   <li>No cached relocation information exists</li>
-     *   <li>The relocations have changed since last time</li>
-     * </ul>
+     * <p>Returns true if no cached relocation information exists or
+     * the relocations have changed since last time.</p>
      *
      * @param dependency the dependency to check
      * @param relocations the current relocations to apply
      * @return true if the dependency should be relocated
+     * @throws NullPointerException if any parameter is null
      */
     public boolean shouldForceRelocate(@NotNull Dependency dependency, @NotNull List<Relocation> relocations) {
         requireNonNull(dependency, "Dependency cannot be null");
@@ -64,6 +61,7 @@ public class RelocationCacheResolver {
      *
      * @param dependency the dependency that was relocated
      * @param relocations the relocations that were applied
+     * @throws NullPointerException if any parameter is null
      * @throws RuntimeException if saving fails
      */
     public void markAsRelocated(@NotNull Dependency dependency, @NotNull List<Relocation> relocations) {
@@ -87,7 +85,10 @@ public class RelocationCacheResolver {
     }
 
     /**
-     * Converts relocations to a string representation.
+     * Converts relocations to a string representation for caching.
+     *
+     * @param relocations the relocations to convert
+     * @return string representation of relocations
      */
     @NotNull
     private String relocationsToString(@NotNull List<Relocation> relocations) {
@@ -97,7 +98,10 @@ public class RelocationCacheResolver {
     }
 
     /**
-     * Gets the saved relocations for a dependency.
+     * Gets the saved relocations for a dependency from cache.
+     *
+     * @param dependency the dependency to check
+     * @return the saved relocations string or empty if not found
      */
     @NotNull
     private Optional<String> getSavedRelocations(@NotNull Dependency dependency) {
@@ -118,6 +122,9 @@ public class RelocationCacheResolver {
 
     /**
      * Gets the path to the relocations cache file for a dependency.
+     *
+     * @param dependency the dependency
+     * @return the cache file path
      */
     @NotNull
     private Path getRelocationsCacheFile(@NotNull Dependency dependency) {
@@ -133,6 +140,7 @@ public class RelocationCacheResolver {
      * Clears the relocation cache for a specific dependency.
      *
      * @param dependency the dependency to clear cache for
+     * @throws NullPointerException if dependency is null
      */
     public void clearCache(@NotNull Dependency dependency) {
         requireNonNull(dependency, "Dependency cannot be null");

@@ -18,8 +18,6 @@ import static java.util.Objects.requireNonNull;
  * <p>This class encapsulates a Maven dependency coordinate and provides
  * utilities for working with semantic versioning, Maven paths, and
  * dependency management features like BOM (Bill of Materials).</p>
- *
- * <p>Example dependency: {@code org.apache.commons:commons-lang3:3.12.0}</p>
  */
 public final class Dependency {
     private static final Pattern VERSION_PATTERN = Pattern.compile(
@@ -39,6 +37,10 @@ public final class Dependency {
 
     /**
      * Creates a new dependency.
+     *
+     * @param groupId the Maven group ID
+     * @param artifactId the Maven artifact ID
+     * @param version the dependency version
      */
     private Dependency(@NotNull String groupId, @NotNull String artifactId, @NotNull String version) {
         this(groupId, artifactId, version, false, null);
@@ -46,6 +48,12 @@ public final class Dependency {
 
     /**
      * Creates a new dependency with BOM flag and classifier.
+     *
+     * @param groupId the Maven group ID
+     * @param artifactId the Maven artifact ID
+     * @param version the dependency version
+     * @param isBom whether this is a BOM dependency
+     * @param classifier the artifact classifier, may be null
      */
     private Dependency(@NotNull String groupId, @NotNull String artifactId, @NotNull String version,
                        boolean isBom, @Nullable String classifier) {
@@ -85,6 +93,7 @@ public final class Dependency {
      * @param version the dependency version
      * @param classifier the artifact classifier
      * @return a new Dependency instance
+     * @throws NullPointerException if any required parameter is null
      */
     @NotNull
     public static Dependency of(@NotNull String groupId, @NotNull String artifactId,
@@ -96,21 +105,41 @@ public final class Dependency {
         return new Dependency(sanitizedGroupId, sanitizedArtifactId, sanitizedVersion, false, classifier);
     }
 
+    /**
+     * Gets the Maven group ID.
+     *
+     * @return the group ID
+     */
     @NotNull
     public String getGroupId() {
         return groupId;
     }
 
+    /**
+     * Gets the Maven artifact ID.
+     *
+     * @return the artifact ID
+     */
     @NotNull
     public String getArtifactId() {
         return artifactId;
     }
 
+    /**
+     * Gets the dependency version.
+     *
+     * @return the version
+     */
     @NotNull
     public String getVersion() {
         return version;
     }
 
+    /**
+     * Gets the artifact classifier.
+     *
+     * @return the classifier or null if none
+     */
     @Nullable
     public String getClassifier() {
         return classifier;
@@ -163,6 +192,7 @@ public final class Dependency {
      *
      * @param repository the repository to resolve from
      * @return a resource locator for the JAR
+     * @throws NullPointerException if repository is null
      */
     @NotNull
     public ResourceLocator toMavenJar(@NotNull Repository repository) {
@@ -179,6 +209,7 @@ public final class Dependency {
      * @param repository the repository to resolve from
      * @param classifier the classifier to use
      * @return a resource locator for the classified JAR
+     * @throws NullPointerException if any parameter is null
      */
     @NotNull
     public ResourceLocator toMavenJar(@NotNull Repository repository, @NotNull String classifier) {
@@ -192,6 +223,7 @@ public final class Dependency {
      *
      * @param repository the repository to resolve from
      * @return a resource locator for the POM
+     * @throws NullPointerException if repository is null
      */
     @NotNull
     public ResourceLocator toPomXml(@NotNull Repository repository) {
@@ -205,6 +237,7 @@ public final class Dependency {
      * @param repository the repository to resolve from
      * @param fileName the file name
      * @return a resource locator for the file
+     * @throws NullPointerException if any parameter is null
      */
     @NotNull
     public ResourceLocator toResource(@NotNull Repository repository, @NotNull String fileName) {
@@ -227,6 +260,7 @@ public final class Dependency {
      *
      * @param other the dependency to compare against
      * @return true if this dependency is newer
+     * @throws NullPointerException if other is null
      * @throws IllegalArgumentException if versions are not in semantic format
      */
     public boolean isNewerThan(@NotNull Dependency other) {
@@ -301,6 +335,10 @@ public final class Dependency {
 
     /**
      * Extracts a semantic version part by name.
+     *
+     * @param partName the name of the version part to extract
+     * @return the numeric value of the version part
+     * @throws IllegalArgumentException if version format is invalid
      */
     private int getSemanticVersionPart(@NotNull String partName) {
         Matcher matcher = VERSION_PATTERN.matcher(version);
@@ -344,6 +382,9 @@ public final class Dependency {
 
     /**
      * Validates that the version doesn't contain unresolved property placeholders.
+     *
+     * @param version the version to validate
+     * @throws IllegalArgumentException if version contains unresolved properties
      */
     private static void validateVersion(@NotNull String version) {
         if (version.contains("${")) {

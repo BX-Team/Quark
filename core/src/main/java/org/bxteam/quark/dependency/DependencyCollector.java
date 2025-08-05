@@ -14,14 +14,6 @@ import static java.util.Objects.requireNonNull;
  * <p>This class collects dependencies during the resolution process and handles
  * version conflicts by keeping the newest version of each dependency. It also
  * manages BOM (Bill of Materials) dependencies separately from regular dependencies.</p>
- *
- * <p>Key features:</p>
- * <ul>
- *   <li>Thread-safe dependency collection</li>
- *   <li>Automatic version conflict resolution</li>
- *   <li>BOM dependency handling</li>
- *   <li>Duplicate detection and prevention</li>
- * </ul>
  */
 public class DependencyCollector {
     private final ConcurrentHashMap<String, Dependency> scannedDependencies = new ConcurrentHashMap<>();
@@ -35,12 +27,9 @@ public class DependencyCollector {
     /**
      * Checks if a dependency has already been scanned and is up-to-date.
      *
-     * <p>This method considers a dependency as already scanned if:</p>
-     * <ul>
-     *   <li>A dependency with the same group:artifact exists</li>
-     *   <li>The existing version is the same or newer</li>
-     *   <li>BOM status is compatible (BOM can be upgraded to non-BOM)</li>
-     * </ul>
+     * <p>This method considers a dependency as already scanned if a dependency with
+     * the same group:artifact exists, the existing version is the same or newer,
+     * and BOM status is compatible (BOM can be upgraded to non-BOM).</p>
      *
      * @param dependency the dependency to check
      * @return true if the dependency is already scanned with same or newer version
@@ -196,6 +185,7 @@ public class DependencyCollector {
      *
      * @param groupArtifactId the group:artifact key to check
      * @return true if a dependency with this key exists
+     * @throws NullPointerException if groupArtifactId is null
      */
     public boolean containsKey(@NotNull String groupArtifactId) {
         requireNonNull(groupArtifactId, "Group artifact ID cannot be null");
@@ -207,6 +197,7 @@ public class DependencyCollector {
      *
      * @param groupArtifactId the group:artifact key
      * @return the dependency or null if not found
+     * @throws NullPointerException if groupArtifactId is null
      */
     @NotNull
     public Dependency getDependency(@NotNull String groupArtifactId) {

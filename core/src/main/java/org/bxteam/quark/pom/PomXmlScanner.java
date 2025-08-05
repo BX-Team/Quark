@@ -32,6 +32,10 @@ import static java.util.Objects.requireNonNull;
 
 /**
  * Scans POM XML files to find transitive dependencies.
+ *
+ * <p>This scanner parses Maven POM files using DOM and XPath to extract
+ * dependency information, handling circular references and maintaining
+ * a cache of processed dependencies to avoid infinite loops.</p>
  */
 public class PomXmlScanner implements DependencyScanner {
     private final List<Repository> repositories;
@@ -42,6 +46,13 @@ public class PomXmlScanner implements DependencyScanner {
     private final DocumentBuilderFactory documentBuilderFactory;
     private final XPathFactory xPathFactory;
 
+    /**
+     * Creates a new POM XML scanner with the specified repositories.
+     *
+     * @param repositories the list of repositories to search
+     * @param localRepository the local repository for cached files
+     * @throws NullPointerException if any parameter is null
+     */
     public PomXmlScanner(@NotNull List<Repository> repositories, @NotNull LocalRepository localRepository) {
         this.repositories = new ArrayList<>(requireNonNull(repositories, "Repositories cannot be null"));
         this.localRepository = requireNonNull(localRepository, "Local repository cannot be null");
@@ -109,7 +120,10 @@ public class PomXmlScanner implements DependencyScanner {
     }
 
     /**
-     * Finds the POM file for a dependency.
+     * Finds the POM file for a dependency in the local repository.
+     *
+     * @param dependency the dependency to find POM for
+     * @return the path to the POM file or null if not found
      */
     @Nullable
     private Path findPomFile(@NotNull Dependency dependency) {
@@ -123,6 +137,9 @@ public class PomXmlScanner implements DependencyScanner {
 
     /**
      * Validates that a file is a valid POM file.
+     *
+     * @param pomFile the file to validate
+     * @return true if the file is a valid POM
      */
     private boolean isValidPomFile(@NotNull Path pomFile) {
         try {
@@ -150,6 +167,11 @@ public class PomXmlScanner implements DependencyScanner {
 
     /**
      * Parses a POM file to extract dependencies.
+     *
+     * @param pomFile the POM file to parse
+     * @param parentDependency the parent dependency for context
+     * @return list of extracted dependencies
+     * @throws Exception if parsing fails
      */
     @NotNull
     private List<Dependency> parsePomFile(@NotNull Path pomFile, @NotNull Dependency parentDependency) throws Exception {
@@ -210,7 +232,11 @@ public class PomXmlScanner implements DependencyScanner {
     }
 
     /**
-     * Parses a single dependency node.
+     * Parses a single dependency node from the DOM.
+     *
+     * @param dependencyNode the XML node containing dependency information
+     * @param parentDependency the parent dependency for context
+     * @return the parsed dependency or null if invalid
      */
     @Nullable
     private Dependency parseDependencyNode(@NotNull Node dependencyNode, @NotNull Dependency parentDependency) {
@@ -235,6 +261,9 @@ public class PomXmlScanner implements DependencyScanner {
 
     /**
      * Checks if a dependency should be included based on scope and optional flag.
+     *
+     * @param dependencyNode the dependency XML node
+     * @return true if the dependency should be included
      */
     private boolean shouldIncludeDependency(@NotNull Node dependencyNode) {
         String scope = getChildNodeText(dependencyNode, "scope");
@@ -252,7 +281,11 @@ public class PomXmlScanner implements DependencyScanner {
     }
 
     /**
-     * Gets text content of a child node.
+     * Gets text content of a child node by name.
+     *
+     * @param parentNode the parent XML node
+     * @param childName the name of the child node
+     * @return the text content or null if not found
      */
     @Nullable
     private String getChildNodeText(@NotNull Node parentNode, @NotNull String childName) {

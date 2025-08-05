@@ -22,18 +22,38 @@ import static java.util.Objects.requireNonNull;
 
 /**
  * Downloads dependency JARs and POM files from Maven repositories.
+ *
+ * <p>This class handles the downloading and caching of Maven dependencies
+ * from remote repositories. It validates downloaded files and manages
+ * the local repository cache.</p>
  */
 public class DependencyDownloader {
     private final Logger logger;
     private final Repository localRepository;
     private final List<Repository> repositories;
 
+    /**
+     * Creates a new dependency downloader.
+     *
+     * @param logger the logger instance
+     * @param localRepository the local repository for caching
+     * @param repositories the list of remote repositories
+     * @throws NullPointerException if any parameter is null
+     */
     public DependencyDownloader(@NotNull Logger logger, @NotNull Repository localRepository, @NotNull List<Repository> repositories) {
         this.logger = requireNonNull(logger, "Logger cannot be null");
         this.localRepository = requireNonNull(localRepository, "Local repository cannot be null");
         this.repositories = new ArrayList<>(requireNonNull(repositories, "Repositories cannot be null"));
     }
 
+    /**
+     * Downloads a dependency and returns the path to the JAR file.
+     *
+     * @param dependency the dependency to download
+     * @return the path to the downloaded JAR file
+     * @throws NullPointerException if dependency is null
+     * @throws DependencyException if download fails
+     */
     @NotNull
     public Path downloadDependency(@NotNull Dependency dependency) {
         requireNonNull(dependency, "Dependency cannot be null");
@@ -45,6 +65,14 @@ public class DependencyDownloader {
         }
     }
 
+    /**
+     * Attempts to download a dependency from available repositories.
+     *
+     * @param dependency the dependency to download
+     * @return the path to the JAR file
+     * @throws URISyntaxException if dependency coordinates are invalid
+     * @throws DependencyException if download fails from all repositories
+     */
     @NotNull
     private Path tryDownloadDependency(@NotNull Dependency dependency) throws URISyntaxException {
         Path localJarPath = dependency.toMavenJar(localRepository).toPath();
@@ -93,6 +121,9 @@ public class DependencyDownloader {
 
     /**
      * Tries to download only the POM file for an existing dependency.
+     *
+     * @param dependency the dependency
+     * @param localPomPath the local path for the POM file
      */
     private void tryDownloadPomOnly(@NotNull Dependency dependency, @NotNull Path localPomPath) {
         for (Repository repository : repositories) {
@@ -110,6 +141,13 @@ public class DependencyDownloader {
 
     /**
      * Downloads both JAR and POM files for a dependency from a specific repository.
+     *
+     * @param repository the repository to download from
+     * @param dependency the dependency to download
+     * @param localJarPath the local path for the JAR file
+     * @param localPomPath the local path for the POM file
+     * @return the download result
+     * @throws DependencyException if download fails
      */
     @NotNull
     private DependencyDownloadResult downloadDependencyAndPom(@NotNull Repository repository,
@@ -138,6 +176,11 @@ public class DependencyDownloader {
 
     /**
      * Downloads and saves a JAR file.
+     *
+     * @param repository the repository to download from
+     * @param dependency the dependency
+     * @param localFile the local file path
+     * @throws DependencyException if download or save fails
      */
     private void downloadJarAndSave(@NotNull Repository repository, @NotNull Dependency dependency, @NotNull Path localFile) {
         try {
@@ -156,6 +199,11 @@ public class DependencyDownloader {
 
     /**
      * Downloads and saves a POM file.
+     *
+     * @param repository the repository to download from
+     * @param dependency the dependency
+     * @param localFile the local file path
+     * @throws DependencyException if download or save fails
      */
     private void downloadPomAndSave(@NotNull Repository repository, @NotNull Dependency dependency, @NotNull Path localFile) {
         try {
@@ -172,6 +220,14 @@ public class DependencyDownloader {
         }
     }
 
+    /**
+     * Downloads a file from a URL.
+     *
+     * @param fileUrl the URL to download from
+     * @param fileType the type of file for logging
+     * @return the downloaded bytes
+     * @throws IOException if download fails
+     */
     @NotNull
     private byte[] downloadFile(@NotNull URL fileUrl, @NotNull String fileType) throws IOException {
         URLConnection connection = fileUrl.openConnection();
@@ -195,6 +251,10 @@ public class DependencyDownloader {
 
     /**
      * Saves bytes to a file.
+     *
+     * @param bytes the bytes to save
+     * @param filePath the target file path
+     * @throws IOException if save fails
      */
     private void saveFile(@NotNull byte[] bytes, @NotNull Path filePath) throws IOException {
         Path parentDir = filePath.getParent();
@@ -207,6 +267,9 @@ public class DependencyDownloader {
 
     /**
      * Gets a clean, user-friendly repository URL for logging.
+     *
+     * @param repository the repository
+     * @return the clean URL
      */
     @NotNull
     private String getCleanRepositoryUrl(@NotNull Repository repository) {
@@ -221,6 +284,9 @@ public class DependencyDownloader {
 
     /**
      * Validates that a file is a valid JAR file.
+     *
+     * @param jarFile the JAR file to validate
+     * @return true if valid
      */
     private boolean isValidJarFile(@NotNull Path jarFile) {
         try {
@@ -234,7 +300,9 @@ public class DependencyDownloader {
 
     /**
      * Validates that a file is a valid POM file.
-     * Improved validation that's more lenient but still catches real issues.
+     *
+     * @param pomFile the POM file to validate
+     * @return true if valid
      */
     private boolean isValidPomFile(@NotNull Path pomFile) {
         try {
@@ -261,6 +329,10 @@ public class DependencyDownloader {
 
     /**
      * Gets a POM file for a dependency if it exists locally.
+     *
+     * @param dependency the dependency
+     * @return the POM file path or null if not found
+     * @throws NullPointerException if dependency is null
      */
     @Nullable
     public Path getPomFile(@NotNull Dependency dependency) {
@@ -272,15 +344,29 @@ public class DependencyDownloader {
 
     /**
      * Checks if a POM file exists for a dependency.
+     *
+     * @param dependency the dependency to check
+     * @return true if POM file exists
+     * @throws NullPointerException if dependency is null
      */
     public boolean hasPomFile(@NotNull Dependency dependency) {
         return getPomFile(dependency) != null;
     }
 
+    /**
+     * Gets the number of configured repositories.
+     *
+     * @return the repository count
+     */
     public int getRepositoryCount() {
         return repositories.size();
     }
 
+    /**
+     * Gets the local repository.
+     *
+     * @return the local repository
+     */
     @NotNull
     public Repository getLocalRepository() {
         return localRepository;
@@ -296,6 +382,10 @@ public class DependencyDownloader {
 
     /**
      * Result of downloading a dependency.
+     *
+     * @param jarPath the path to the JAR file
+     * @param jarDownloaded whether the JAR was downloaded
+     * @param pomDownloaded whether the POM was downloaded
      */
     private record DependencyDownloadResult(@NotNull Path jarPath, boolean jarDownloaded, boolean pomDownloaded) {
         private DependencyDownloadResult(@NotNull Path jarPath, boolean jarDownloaded, boolean pomDownloaded) {

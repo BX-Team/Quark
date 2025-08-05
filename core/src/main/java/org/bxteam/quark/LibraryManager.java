@@ -26,7 +26,15 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import static java.util.Objects.requireNonNull;
 
 /**
- * Abstract base class for runtime dependency management.
+ * Abstract base class for runtime dependency management and library loading.
+ *
+ * <p>The {@code LibraryManager} provides a comprehensive solution for managing Maven dependencies
+ * at runtime, including dependency resolution, downloading, relocation, and class loading.
+ * This class handles transitive dependency resolution, maintains a local repository cache,
+ * and supports isolated class loading for dependency isolation.</p>
+ *
+ * @apiNote The LibraryManager follows the {@link AutoCloseable} pattern. Always call {@link #close()}
+ * when done to properly clean up resources, including isolated class loaders and file handles.
  */
 public abstract class LibraryManager implements AutoCloseable {
     private static final String DEFAULT_LIBS_DIRECTORY = "libs";
@@ -48,10 +56,29 @@ public abstract class LibraryManager implements AutoCloseable {
 
     protected final Map<Dependency, Path> loadedDependencies = new ConcurrentHashMap<>();
 
+    /**
+     * Constructs a new LibraryManager with the default libraries directory name.
+     *
+     * @param logAdapter the log adapter for logging operations
+     * @param dataDirectory the base directory for storing libraries and cache data
+     * @throws NullPointerException if logAdapter or dataDirectory is null
+     */
     protected LibraryManager(@NotNull LogAdapter logAdapter, @NotNull Path dataDirectory) {
         this(logAdapter, dataDirectory, DEFAULT_LIBS_DIRECTORY);
     }
 
+    /**
+     * Constructs a new LibraryManager with a custom libraries directory name.
+     *
+     * <p>This constructor initializes the LibraryManager with the specified data directory
+     * and libraries subdirectory. The local repository will be created within the
+     * specified libraries directory.</p>
+     *
+     * @param logAdapter the log adapter for logging operations
+     * @param dataDirectory the base directory for storing libraries and cache data
+     * @param librariesDirectoryName the name of the subdirectory for storing libraries
+     * @throws NullPointerException if any parameter is null
+     */
     protected LibraryManager(@NotNull LogAdapter logAdapter, @NotNull Path dataDirectory,
                              @NotNull String librariesDirectoryName) {
         this.logger = new Logger(requireNonNull(logAdapter, "Log adapter cannot be null"));
@@ -72,6 +99,10 @@ public abstract class LibraryManager implements AutoCloseable {
         logger.debug("Initialized LibraryManager with data directory: " + dataDirectory);
     }
 
+    /**
+     * Updates the dependency downloader with the current list of repositories.
+     * This method is called internally when repositories are added or modified.
+     */
     private void updateDependencyDownloader() {
         List<Repository> allRepositories = new ArrayList<>();
         allRepositories.add(localRepository);
@@ -80,14 +111,46 @@ public abstract class LibraryManager implements AutoCloseable {
         this.dependencyDownloader = new DependencyDownloader(logger, localRepository, allRepositories);
     }
 
+    /**
+     * Adds a JAR file to the application's classpath.
+     * This method must be implemented by concrete subclasses to handle
+     * platform-specific classpath manipulation.
+     *
+     * @param jarPath the path to the JAR file to add to the classpath
+     */
     protected abstract void addToClasspath(@NotNull Path jarPath);
 
+    /**
+     * Creates a new isolated class loader instance.
+     * This method must be implemented by concrete subclasses to provide
+     * platform-specific isolated class loader implementations.
+     *
+     * @return a new isolated class loader instance
+     */
     @NotNull
     protected abstract IsolatedClassLoader createIsolatedClassLoader();
 
+    /**
+     * Retrieves a resource as an input stream from the application context.
+     * This method must be implemented by concrete subclasses to provide
+     * access to application resources.
+     *
+     * @param resourcePath the path to the resource
+     * @return an input stream for the resource, or null if not found
+     */
     @Nullable
     protected abstract InputStream getResourceAsStream(@NotNull String resourcePath);
 
+    /**
+     * Adds a repository to the global repository list.
+     *
+     * <p>The repository will be used for dependency resolution and downloading.
+     * If the repository URL is Maven Central, a warning will be logged about
+     * terms of service compliance.</p>
+     *
+     * @param repositoryUrl the URL of the repository to add
+     * @throws NullPointerException if repositoryUrl is null
+     */
     public void addRepository(@NotNull String repositoryUrl) {
         requireNonNull(repositoryUrl, "Repository URL cannot be null");
 
@@ -103,6 +166,9 @@ public abstract class LibraryManager implements AutoCloseable {
 
     /**
      * Checks if a URL is Maven Central.
+     *
+     * @param url the URL to check
+     * @return true if the URL is Maven Central, false otherwise
      */
     private boolean isMavenCentralUrl(@NotNull String url) {
         return url.equals(Repositories.MAVEN_CENTRAL) || url.equals("https://repo1.maven.org/maven2/");
@@ -110,6 +176,8 @@ public abstract class LibraryManager implements AutoCloseable {
 
     /**
      * Shows the Maven Central compliance warning.
+     * This warning is displayed when Maven Central is used directly,
+     * which may violate their terms of service.
      */
     private void showMavenCentralWarning() {
         RuntimeException stackTrace = new RuntimeException("Plugin used Maven Central for library resolution");
@@ -119,6 +187,8 @@ public abstract class LibraryManager implements AutoCloseable {
 
     /**
      * Adds the Maven Central repository.
+     *
+     * @deprecated Use {@link #addGoogleMavenCentralMirror()} instead to comply with Maven Central Terms of Service
      */
     @Deprecated
     public void addMavenCentral() {
@@ -127,6 +197,9 @@ public abstract class LibraryManager implements AutoCloseable {
 
     /**
      * Adds the Google Maven Central mirror repository.
+     *
+     * <p>This is the recommended way to access Maven Central artifacts
+     * while complying with Maven Central's Terms of Service.</p>
      */
     public void addGoogleMavenCentralMirror() {
         addRepository(Repositories.GOOGLE_MAVEN_CENTRAL_MIRROR);
@@ -134,6 +207,9 @@ public abstract class LibraryManager implements AutoCloseable {
 
     /**
      * Adds the Sonatype OSS repository.
+     *
+     * <p>This repository contains open-source snapshots and releases
+     * hosted by Sonatype.</p>
      */
     public void addSonatype() {
         addRepository(Repositories.SONATYPE);
@@ -141,6 +217,9 @@ public abstract class LibraryManager implements AutoCloseable {
 
     /**
      * Adds the JitPack repository.
+     *
+     * <p>JitPack is a novel package repository for JVM and Android projects.
+     * It builds Git projects on demand and provides you with ready-to-use artifacts.</p>
      */
     public void addJitPack() {
         addRepository(Repositories.JITPACK);
@@ -148,25 +227,65 @@ public abstract class LibraryManager implements AutoCloseable {
 
     /**
      * Adds the current user's local Maven repository.
+     *
+     * <p>This adds the local Maven repository (typically ~/.m2/repository)
+     * to the list of available repositories for dependency resolution.</p>
      */
     public void addMavenLocal() {
         addRepository(LocalRepository.mavenLocal().getUrl());
     }
 
+    /**
+     * Returns an unmodifiable collection of all configured repositories.
+     *
+     * @return an unmodifiable collection of repositories
+     */
     @NotNull
     public Collection<Repository> getRepositories() {
         return Collections.unmodifiableSet(globalRepositories);
     }
 
+    /**
+     * Loads a single dependency and adds it to the classpath.
+     *
+     * <p>This method resolves transitive dependencies and downloads all required
+     * JAR files before adding them to the application's classpath.</p>
+     *
+     * @param dependency the dependency to load
+     * @throws NullPointerException if dependency is null
+     * @throws LibraryLoadException if the dependency cannot be loaded
+     */
     public void loadDependency(@NotNull Dependency dependency) {
         requireNonNull(dependency, "Dependency cannot be null");
         loadDependencies(Collections.singletonList(dependency));
     }
 
+    /**
+     * Loads multiple dependencies and adds them to the classpath.
+     *
+     * <p>This method resolves transitive dependencies for all provided dependencies
+     * and downloads all required JAR files before adding them to the application's classpath.</p>
+     *
+     * @param dependencies the list of dependencies to load
+     * @throws NullPointerException if dependencies is null
+     * @throws LibraryLoadException if any dependency cannot be loaded
+     */
     public void loadDependencies(@NotNull List<Dependency> dependencies) {
         loadDependencies(dependencies, Collections.emptyList());
     }
 
+    /**
+     * Loads multiple dependencies with relocations and adds them to the classpath.
+     *
+     * <p>This method resolves transitive dependencies, applies relocations to avoid
+     * conflicts, and downloads all required JAR files before adding them to the
+     * application's classpath.</p>
+     *
+     * @param dependencies the list of dependencies to load
+     * @param relocations the list of relocations to apply
+     * @throws NullPointerException if dependencies or relocations is null
+     * @throws LibraryLoadException if any dependency cannot be loaded
+     */
     public void loadDependencies(@NotNull List<Dependency> dependencies, @NotNull List<Relocation> relocations) {
         requireNonNull(dependencies, "Dependencies cannot be null");
         requireNonNull(relocations, "Relocations cannot be null");
@@ -199,6 +318,19 @@ public abstract class LibraryManager implements AutoCloseable {
         }
     }
 
+    /**
+     * Loads multiple dependencies with relocations into an isolated class loader.
+     *
+     * <p>This method resolves transitive dependencies, applies relocations to avoid
+     * conflicts, and downloads all required JAR files before adding them to the
+     * specified isolated class loader instead of the main application classpath.</p>
+     *
+     * @param classLoader the isolated class loader to load dependencies into
+     * @param dependencies the list of dependencies to load
+     * @param relocations the list of relocations to apply
+     * @throws NullPointerException if any parameter is null
+     * @throws LibraryLoadException if any dependency cannot be loaded
+     */
     public void loadDependencies(@NotNull IsolatedClassLoader classLoader,
                                  @NotNull List<Dependency> dependencies,
                                  @NotNull List<Relocation> relocations) {
@@ -236,6 +368,12 @@ public abstract class LibraryManager implements AutoCloseable {
 
     /**
      * Resolves transitive dependencies iteratively until no new dependencies are found.
+     *
+     * <p>This method uses an iterative approach to resolve all transitive dependencies,
+     * preventing infinite loops and handling circular dependencies gracefully.</p>
+     *
+     * @param rootDependencies the initial set of dependencies to resolve
+     * @return a dependency collector containing all resolved dependencies
      */
     @NotNull
     private DependencyCollector resolveTransitiveDependenciesIteratively(@NotNull Collection<Dependency> rootDependencies) {
@@ -302,6 +440,13 @@ public abstract class LibraryManager implements AutoCloseable {
         return collector;
     }
 
+    /**
+     * Downloads and relocates dependencies as needed.
+     *
+     * @param collector the dependency collector containing resolved dependencies
+     * @param relocations the list of relocations to apply
+     * @return a list of dependency load entries with their final paths
+     */
     @NotNull
     private List<DependencyLoadEntry> downloadAndRelocateDependencies(@NotNull DependencyCollector collector,
                                                                       @NotNull List<Relocation> relocations) {
@@ -330,6 +475,14 @@ public abstract class LibraryManager implements AutoCloseable {
         return loadEntries;
     }
 
+    /**
+     * Applies relocations to a dependency JAR file.
+     *
+     * @param dependency the dependency being processed
+     * @param jarPath the original path to the JAR file
+     * @param relocations the list of relocations to apply
+     * @return the path to the final JAR file (relocated if necessary)
+     */
     @NotNull
     private Path applyRelocations(@NotNull Dependency dependency, @NotNull Path jarPath, @NotNull List<Relocation> relocations) {
         if (relocations.isEmpty()) {
@@ -347,35 +500,77 @@ public abstract class LibraryManager implements AutoCloseable {
         return relocationHandler.relocateDependency(localRepository, jarPath, dependency, relocations);
     }
 
+    /**
+     * Returns the logger instance used by this LibraryManager.
+     *
+     * @return the logger instance
+     */
     @NotNull
     public Logger getLogger() {
         return logger;
     }
 
+    /**
+     * Returns the local repository instance used for caching dependencies.
+     *
+     * @return the local repository instance
+     */
     @NotNull
     public LocalRepository getLocalRepository() {
         return localRepository;
     }
 
+    /**
+     * Returns the current log level.
+     *
+     * @return the current log level
+     */
     @NotNull
     public LogLevel getLogLevel() {
         return logger.getLevel();
     }
 
+    /**
+     * Sets the log level for this LibraryManager.
+     *
+     * @param level the new log level to set
+     * @throws NullPointerException if level is null
+     */
     public void setLogLevel(@NotNull LogLevel level) {
         logger.setLevel(requireNonNull(level, "Log level cannot be null"));
     }
 
+    /**
+     * Returns the global isolated class loader instance.
+     *
+     * <p>This class loader can be used to load classes in isolation from the
+     * main application classpath.</p>
+     *
+     * @return the global isolated class loader
+     */
     @NotNull
     public IsolatedClassLoader getGlobalIsolatedClassLoader() {
         return globalIsolatedClassLoader;
     }
 
+    /**
+     * Returns the isolated class loader with the specified ID, if it exists.
+     *
+     * @param loaderId the ID of the class loader to retrieve
+     * @return the isolated class loader, or null if not found
+     * @throws NullPointerException if loaderId is null
+     */
     @Nullable
     public IsolatedClassLoader getIsolatedClassLoader(@NotNull String loaderId) {
         return isolatedClassLoaders.get(requireNonNull(loaderId, "Loader ID cannot be null"));
     }
 
+    /**
+     * Closes this LibraryManager and releases all associated resources.
+     *
+     * <p>This method performs cleanup of isolated class loaders, relocation handlers,
+     * and other resources. It should be called when the LibraryManager is no longer needed.</p>
+     */
     @Override
     public void close() {
         logger.debug("Shutting down LibraryManager...");
@@ -387,7 +582,6 @@ public abstract class LibraryManager implements AutoCloseable {
 
             globalIsolatedClassLoader.close();
             isolatedClassLoaders.values().forEach(IsolatedClassLoader::close);
-
         } catch (Exception e) {
             logger.error("Error during LibraryManager shutdown", e);
         }
@@ -395,11 +589,28 @@ public abstract class LibraryManager implements AutoCloseable {
         logger.debug("LibraryManager shutdown complete");
     }
 
+    /**
+     * Exception thrown when library loading operations fail.
+     *
+     * <p>This exception is thrown when dependencies cannot be resolved, downloaded,
+     * or loaded into the classpath for any reason.</p>
+     */
     public static class LibraryLoadException extends RuntimeException {
+        /**
+         * Constructs a new LibraryLoadException with the specified detail message.
+         *
+         * @param message the detail message
+         */
         public LibraryLoadException(String message) {
             super(message);
         }
 
+        /**
+         * Constructs a new LibraryLoadException with the specified detail message and cause.
+         *
+         * @param message the detail message
+         * @param cause the cause of this exception
+         */
         public LibraryLoadException(String message, Throwable cause) {
             super(message, cause);
         }

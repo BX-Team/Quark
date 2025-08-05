@@ -26,7 +26,8 @@ import static java.util.Objects.requireNonNull;
  * Paper-specific implementation of LibraryManager for Paper plugins.
  *
  * <p>This implementation is designed for Paper plugins that use paper-plugin.yml
- * and the PaperPluginClassLoader system introduced in Paper 1.19.3+.</p>
+ * and the PaperPluginClassLoader system introduced in Paper 1.19.3+. It uses
+ * reflection to access the internal library loader for dependency injection.</p>
  *
  * @apiNote This is for Paper plugins (paper-plugin.yml), not Bukkit plugins
  * running on Paper. For Bukkit plugins, use <b>quark-bukkit</b> module.
@@ -39,6 +40,7 @@ public class PaperLibraryManager extends LibraryManager {
      * Creates a new Paper library manager with default settings.
      *
      * @param plugin the Paper plugin instance
+     * @throws NullPointerException if plugin is null
      * @throws RuntimeException if the plugin is not using PaperPluginClassLoader
      */
     public PaperLibraryManager(@NotNull Plugin plugin) {
@@ -50,6 +52,7 @@ public class PaperLibraryManager extends LibraryManager {
      *
      * @param plugin the Paper plugin instance
      * @param librariesDirectoryName the name of the directory to store downloaded libraries
+     * @throws NullPointerException if any parameter is null
      * @throws RuntimeException if the plugin is not using PaperPluginClassLoader
      */
     public PaperLibraryManager(@NotNull Plugin plugin, @NotNull String librariesDirectoryName) {
@@ -62,6 +65,7 @@ public class PaperLibraryManager extends LibraryManager {
      * @param plugin the Paper plugin instance
      * @param librariesDirectoryName the name of the directory to store downloaded libraries
      * @param logAdapter the log adapter to use for logging
+     * @throws NullPointerException if any parameter is null
      * @throws RuntimeException if the plugin is not using PaperPluginClassLoader
      */
     public PaperLibraryManager(@NotNull Plugin plugin, @NotNull String librariesDirectoryName, @NotNull LogAdapter logAdapter) {
@@ -75,6 +79,10 @@ public class PaperLibraryManager extends LibraryManager {
 
     /**
      * Creates and configures the URLClassLoaderHelper for Paper plugin class loading.
+     *
+     * @param plugin the Paper plugin instance
+     * @return the configured URLClassLoaderHelper
+     * @throws RuntimeException if PaperPluginClassLoader is not available or accessible
      */
     @NotNull
     private URLClassLoaderHelper createClassLoaderHelper(@NotNull Plugin plugin) {
@@ -102,6 +110,11 @@ public class PaperLibraryManager extends LibraryManager {
 
     /**
      * Extracts the library loader from the PaperPluginClassLoader using reflection.
+     *
+     * @param paperPluginClassLoaderClass the PaperPluginClassLoader class
+     * @param pluginClassLoader the plugin's class loader instance
+     * @return the extracted URLClassLoader for library loading
+     * @throws RuntimeException if extraction fails
      */
     @NotNull
     private URLClassLoader extractLibraryLoader(@NotNull Class<?> paperPluginClassLoaderClass, @NotNull ClassLoader pluginClassLoader) {
@@ -164,9 +177,10 @@ public class PaperLibraryManager extends LibraryManager {
     /**
      * Loads a dependency by Maven coordinates.
      *
-     * @param groupId the group ID
-     * @param artifactId the artifact ID
-     * @param version the version
+     * @param groupId the Maven group ID
+     * @param artifactId the Maven artifact ID
+     * @param version the dependency version
+     * @throws NullPointerException if any parameter is null
      */
     public void loadDependency(@NotNull String groupId, @NotNull String artifactId, @NotNull String version) {
         requireNonNull(groupId, "Group ID cannot be null");
@@ -181,6 +195,7 @@ public class PaperLibraryManager extends LibraryManager {
      * Loads a single dependency.
      *
      * @param dependency the dependency to load
+     * @throws NullPointerException if dependency is null
      */
     public void loadDependency(@NotNull Dependency dependency) {
         requireNonNull(dependency, "Dependency cannot be null");
@@ -191,6 +206,7 @@ public class PaperLibraryManager extends LibraryManager {
      * Loads dependencies without relocations.
      *
      * @param dependencies the list of dependencies to load
+     * @throws NullPointerException if dependencies is null
      */
     public void loadDependencies(@NotNull List<Dependency> dependencies) {
         loadDependencies(dependencies, Collections.emptyList());
@@ -201,6 +217,7 @@ public class PaperLibraryManager extends LibraryManager {
      *
      * @param dependencies the list of dependencies to load
      * @param relocations the list of relocations to apply
+     * @throws NullPointerException if any parameter is null
      */
     public void loadDependencies(@NotNull List<Dependency> dependencies, @NotNull List<Relocation> relocations) {
         requireNonNull(dependencies, "Dependencies cannot be null");
@@ -215,6 +232,7 @@ public class PaperLibraryManager extends LibraryManager {
      * @param isolatedClassLoader the isolated class loader
      * @param dependencies the list of dependencies to load
      * @param relocations the list of relocations to apply
+     * @throws NullPointerException if any parameter is null
      */
     public void loadDependenciesIsolated(@NotNull IsolatedClassLoader isolatedClassLoader,
                                          @NotNull List<Dependency> dependencies,

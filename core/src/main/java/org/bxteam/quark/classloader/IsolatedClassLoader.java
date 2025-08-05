@@ -12,13 +12,9 @@ import java.nio.file.Path;
  * without polluting the main application classpath. This is essential for
  * avoiding conflicts between different versions of the same library.</p>
  *
- * <p>Implementations should provide:</p>
- * <ul>
- *   <li>Dynamic JAR addition to classpath</li>
- *   <li>Class loading from added JARs</li>
- *   <li>Proper resource cleanup</li>
- *   <li>Isolation from parent classloaders where appropriate</li>
- * </ul>
+ * <p>Implementations must provide dynamic JAR addition to classpath, class loading
+ * from added JARs, proper resource cleanup, and isolation from parent classloaders
+ * where appropriate.</p>
  */
 public interface IsolatedClassLoader extends Closeable {
     /**
@@ -55,7 +51,7 @@ public interface IsolatedClassLoader extends Closeable {
     /**
      * Checks if this class loader has been closed.
      *
-     * @return true if the class loader is closed
+     * @return true if the class loader is closed, false otherwise
      */
     default boolean isClosed() {
         return false;
@@ -64,7 +60,7 @@ public interface IsolatedClassLoader extends Closeable {
     /**
      * Gets the number of paths added to this class loader.
      *
-     * @return the number of paths, or -1 if not supported
+     * @return the number of paths, or -1 if not supported by the implementation
      */
     default int getPathCount() {
         return -1;
@@ -72,12 +68,25 @@ public interface IsolatedClassLoader extends Closeable {
 
     /**
      * Exception thrown when class loader operations fail.
+     *
+     * @since 1.0
      */
     class ClassLoaderException extends RuntimeException {
+        /**
+         * Constructs a new ClassLoaderException with the specified detail message.
+         *
+         * @param message the detail message
+         */
         public ClassLoaderException(String message) {
             super(message);
         }
 
+        /**
+         * Constructs a new ClassLoaderException with the specified detail message and cause.
+         *
+         * @param message the detail message
+         * @param cause the cause of this exception
+         */
         public ClassLoaderException(String message, Throwable cause) {
             super(message, cause);
         }

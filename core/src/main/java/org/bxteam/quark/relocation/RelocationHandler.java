@@ -45,6 +45,11 @@ public class RelocationHandler implements AutoCloseable {
 
     /**
      * Creates a new relocation handler.
+     *
+     * @param classLoader the isolated class loader for relocation tools
+     * @param jarRelocatorConstructor the jar relocator constructor
+     * @param jarRelocatorRunMethod the jar relocator run method
+     * @param cacheResolver the cache resolver for tracking relocations
      */
     private RelocationHandler(@NotNull IsolatedClassLoader classLoader,
                               @NotNull Constructor<?> jarRelocatorConstructor,
@@ -64,6 +69,7 @@ public class RelocationHandler implements AutoCloseable {
      * @param dependency the dependency being relocated
      * @param relocations the list of relocations to apply
      * @return the path to the relocated JAR (or original if no relocations)
+     * @throws NullPointerException if any parameter is null
      * @throws DependencyException if relocation fails
      */
     @NotNull
@@ -90,7 +96,14 @@ public class RelocationHandler implements AutoCloseable {
     }
 
     /**
-     * Performs the actual JAR relocation.
+     * Performs the actual JAR relocation using reflection.
+     *
+     * @param dependency the dependency being relocated
+     * @param input the input JAR path
+     * @param output the output JAR path
+     * @param relocations the relocations to apply
+     * @return the path to the relocated JAR
+     * @throws DependencyException if relocation fails
      */
     @NotNull
     private Path relocate(@NotNull Dependency dependency, @NotNull Path input, @NotNull Path output, @NotNull List<Relocation> relocations) {
@@ -128,6 +141,7 @@ public class RelocationHandler implements AutoCloseable {
      *
      * @param libraryManager the library manager to load dependencies with
      * @return a new relocation handler
+     * @throws NullPointerException if libraryManager is null
      * @throws DependencyException if the handler cannot be created
      */
     @NotNull

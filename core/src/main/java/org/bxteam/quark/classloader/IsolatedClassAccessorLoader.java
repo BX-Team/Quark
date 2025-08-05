@@ -16,10 +16,6 @@ import static java.util.Objects.requireNonNull;
  * class loader (such as a plugin's class loader) rather than creating a new
  * isolated environment. It uses reflection-based or unsafe-based techniques
  * to modify the existing class loader's classpath.</p>
- *
- * <p>This approach is commonly used in plugin environments where you want
- * to add dependencies to the plugin's own class loader rather than creating
- * a separate isolated environment.</p>
  */
 public class IsolatedClassAccessorLoader implements IsolatedClassLoader {
     private final URLClassLoaderAccessor accessor;
@@ -110,6 +106,8 @@ public class IsolatedClassAccessorLoader implements IsolatedClassLoader {
 
     /**
      * Checks if this class loader has been closed and throws an exception if it has.
+     *
+     * @throws ClassLoaderException if the class loader has been closed
      */
     private void checkNotClosed() {
         if (closed.get()) {

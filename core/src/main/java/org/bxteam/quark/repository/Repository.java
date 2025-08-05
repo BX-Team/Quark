@@ -58,7 +58,9 @@ public class Repository {
 
     /**
      * Normalizes a repository URL by ensuring it doesn't end with a trailing slash.
-     * This is the opposite of LibraryManager's normalization to match the original behavior.
+     *
+     * @param url the URL to normalize
+     * @return the normalized URL
      */
     @NotNull
     private static String normalizeUrl(@NotNull String url) {

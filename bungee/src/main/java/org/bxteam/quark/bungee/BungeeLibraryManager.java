@@ -22,6 +22,10 @@ import static java.util.Objects.requireNonNull;
 
 /**
  * BungeeCord-specific implementation of LibraryManager for BungeeCord plugins.
+ *
+ * <p>This implementation uses reflection to inject dependencies into the plugin's
+ * URLClassLoader at runtime. It works with BungeeCord and compatible proxy servers
+ * like Waterfall.</p>
  */
 public class BungeeLibraryManager extends LibraryManager {
     private final Plugin plugin;
@@ -31,6 +35,8 @@ public class BungeeLibraryManager extends LibraryManager {
      * Creates a new BungeeCord library manager with default settings.
      *
      * @param plugin the BungeeCord plugin instance
+     * @throws NullPointerException if plugin is null
+     * @throws IllegalStateException if plugin class loader is not a URLClassLoader
      */
     public BungeeLibraryManager(@NotNull Plugin plugin) {
         this(plugin, "libs");
@@ -41,6 +47,8 @@ public class BungeeLibraryManager extends LibraryManager {
      *
      * @param plugin the BungeeCord plugin instance
      * @param librariesDirectoryName the name of the directory to store downloaded libraries
+     * @throws NullPointerException if any parameter is null
+     * @throws IllegalStateException if plugin class loader is not a URLClassLoader
      */
     public BungeeLibraryManager(@NotNull Plugin plugin, @NotNull String librariesDirectoryName) {
         this(plugin, librariesDirectoryName, new JavaLogAdapter(plugin.getLogger()));
@@ -52,6 +60,8 @@ public class BungeeLibraryManager extends LibraryManager {
      * @param plugin the BungeeCord plugin instance
      * @param librariesDirectoryName the name of the directory to store downloaded libraries
      * @param logAdapter the log adapter to use for logging
+     * @throws NullPointerException if any parameter is null
+     * @throws IllegalStateException if plugin class loader is not a URLClassLoader
      */
     public BungeeLibraryManager(@NotNull Plugin plugin, @NotNull String librariesDirectoryName, @NotNull LogAdapter logAdapter) {
         super(logAdapter, plugin.getDataFolder().toPath(), librariesDirectoryName);
@@ -96,9 +106,10 @@ public class BungeeLibraryManager extends LibraryManager {
     /**
      * Loads a dependency by Maven coordinates.
      *
-     * @param groupId the group ID
-     * @param artifactId the artifact ID
-     * @param version the version
+     * @param groupId the Maven group ID
+     * @param artifactId the Maven artifact ID
+     * @param version the dependency version
+     * @throws NullPointerException if any parameter is null
      */
     public void loadDependency(@NotNull String groupId, @NotNull String artifactId, @NotNull String version) {
         requireNonNull(groupId, "Group ID cannot be null");
@@ -113,6 +124,7 @@ public class BungeeLibraryManager extends LibraryManager {
      * Loads a single dependency.
      *
      * @param dependency the dependency to load
+     * @throws NullPointerException if dependency is null
      */
     public void loadDependency(@NotNull Dependency dependency) {
         requireNonNull(dependency, "Dependency cannot be null");
@@ -123,6 +135,7 @@ public class BungeeLibraryManager extends LibraryManager {
      * Loads dependencies without relocations.
      *
      * @param dependencies the list of dependencies to load
+     * @throws NullPointerException if dependencies is null
      */
     public void loadDependencies(@NotNull List<Dependency> dependencies) {
         loadDependencies(dependencies, Collections.emptyList());
@@ -133,6 +146,7 @@ public class BungeeLibraryManager extends LibraryManager {
      *
      * @param dependencies the list of dependencies to load
      * @param relocations the list of relocations to apply
+     * @throws NullPointerException if any parameter is null
      */
     public void loadDependencies(@NotNull List<Dependency> dependencies, @NotNull List<Relocation> relocations) {
         requireNonNull(dependencies, "Dependencies cannot be null");
@@ -147,6 +161,7 @@ public class BungeeLibraryManager extends LibraryManager {
      * @param isolatedClassLoader the isolated class loader
      * @param dependencies the list of dependencies to load
      * @param relocations the list of relocations to apply
+     * @throws NullPointerException if any parameter is null
      */
     public void loadDependenciesIsolated(@NotNull IsolatedClassLoader isolatedClassLoader,
                                          @NotNull List<Dependency> dependencies,

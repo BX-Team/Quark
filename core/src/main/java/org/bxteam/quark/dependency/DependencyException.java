@@ -4,13 +4,9 @@ package org.bxteam.quark.dependency;
  * Exception thrown when dependency operations fail.
  *
  * <p>This exception is used throughout the dependency management system
- * to indicate various failure conditions such as:</p>
- * <ul>
- *   <li>Dependency download failures</li>
- *   <li>Version resolution conflicts</li>
- *   <li>Repository access issues</li>
- *   <li>Dependency parsing errors</li>
- * </ul>
+ * to indicate various failure conditions such as dependency download failures,
+ * version resolution conflicts, repository access issues, and dependency
+ * parsing errors.</p>
  */
 public class DependencyException extends RuntimeException {
     /**
