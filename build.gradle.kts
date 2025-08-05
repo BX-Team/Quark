@@ -53,7 +53,7 @@ subprojects {
         publications {
             create<MavenPublication>("maven") {
                 groupId = project.group.toString()
-                artifactId = "quark"
+                artifactId = project.name.removePrefix("quark-")
                 version = project.version.toString()
                 from(components["java"])
             }
