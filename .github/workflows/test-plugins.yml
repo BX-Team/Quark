@@ -20,6 +20,7 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
+          cache: gradle
 
       - name: Make gradlew executable
         run: chmod +x ./gradlew
@@ -80,7 +81,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: QuarkBukkitTestPlugin
-          path: artifacts/bukkit/QuarkBukkitTestPlugin.zip
+          path: artifacts/bukkit/
           if-no-files-found: warn
           retention-days: 30
 
@@ -89,7 +90,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: QuarkBungeeTestPlugin
-          path: artifacts/bungee/QuarkBungeeTestPlugin.zip
+          path: artifacts/bungee/
           if-no-files-found: warn
           retention-days: 30
 
@@ -98,7 +99,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: QuarkPaperTestPlugin
-          path: artifacts/paper/QuarkPaperTestPlugin.zip
+          path: artifacts/paper/
           if-no-files-found: warn
           retention-days: 30
 
@@ -107,6 +108,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: QuarkVelocityTestPlugin
-          path: artifacts/velocity/QuarkVelocityTestPlugin.zip
+          path: artifacts/velocity/
           if-no-files-found: warn
           retention-days: 30
