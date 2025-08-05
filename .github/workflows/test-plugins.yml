@@ -28,50 +28,46 @@ jobs:
       - name: Build test plugins
         run: ./gradlew buildTestPlugin
 
-      - name: Create Bukkit test plugin artifact
+      - name: Prepare Bukkit test plugin artifact
         if: always()
         run: |
-          mkdir -p artifacts/bukkit
           if [ -d "bukkit/build/test-plugin" ] && [ "$(ls -A bukkit/build/test-plugin/*.jar 2>/dev/null)" ]; then
-            cd bukkit/build/test-plugin
-            zip -r ../../../artifacts/bukkit/QuarkBukkitTestPlugin.zip *.jar
-            cd ../../..
+            mkdir -p artifacts/bukkit
+            cp bukkit/build/test-plugin/*.jar artifacts/bukkit/
+            echo "Bukkit test plugin files prepared"
           else
             echo "No Bukkit test plugin JARs found"
           fi
 
-      - name: Create BungeeCord test plugin artifact
+      - name: Prepare BungeeCord test plugin artifact
         if: always()
         run: |
-          mkdir -p artifacts/bungee
           if [ -d "bungee/build/test-plugin" ] && [ "$(ls -A bungee/build/test-plugin/*.jar 2>/dev/null)" ]; then
-            cd bungee/build/test-plugin
-            zip -r ../../../artifacts/bungee/QuarkBungeeTestPlugin.zip *.jar
-            cd ../../..
+            mkdir -p artifacts/bungee
+            cp bungee/build/test-plugin/*.jar artifacts/bungee/
+            echo "BungeeCord test plugin files prepared"
           else
             echo "No BungeeCord test plugin JARs found"
           fi
 
-      - name: Create Paper test plugin artifact
+      - name: Prepare Paper test plugin artifact
         if: always()
         run: |
-          mkdir -p artifacts/paper
           if [ -d "paper/build/test-plugin" ] && [ "$(ls -A paper/build/test-plugin/*.jar 2>/dev/null)" ]; then
-            cd paper/build/test-plugin
-            zip -r ../../../artifacts/paper/QuarkPaperTestPlugin.zip *.jar
-            cd ../../..
+            mkdir -p artifacts/paper
+            cp paper/build/test-plugin/*.jar artifacts/paper/
+            echo "Paper test plugin files prepared"
           else
             echo "No Paper test plugin JARs found"
           fi
 
-      - name: Create Velocity test plugin artifact
+      - name: Prepare Velocity test plugin artifact
         if: always()
         run: |
-          mkdir -p artifacts/velocity
           if [ -d "velocity/build/test-plugin" ] && [ "$(ls -A velocity/build/test-plugin/*.jar 2>/dev/null)" ]; then
-            cd velocity/build/test-plugin
-            zip -r ../../../artifacts/velocity/QuarkVelocityTestPlugin.zip *.jar
-            cd ../../..
+            mkdir -p artifacts/velocity
+            cp velocity/build/test-plugin/*.jar artifacts/velocity/
+            echo "Velocity test plugin files prepared"
           else
             echo "No Velocity test plugin JARs found"
           fi
