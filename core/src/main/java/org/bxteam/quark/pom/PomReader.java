@@ -26,13 +26,17 @@ import static java.util.Objects.requireNonNull;
 /**
  * Reads and parses Maven POM files to extract dependency information.
  *
- * @author BxTeam
- * @since 1.0.0
+ * <p>This class provides functionality to read and parse Maven Project Object Model (POM)
+ * files, extracting essential information such as artifact coordinates, dependencies,
+ * properties, and dependency management.</p>
  */
 public class PomReader {
     private final DocumentBuilderFactory documentBuilderFactory;
     private final XPathFactory xPathFactory;
 
+    /**
+     * Creates a new PomReader with default XML parser configuration.
+     */
     public PomReader() {
         this.documentBuilderFactory = DocumentBuilderFactory.newInstance();
         this.documentBuilderFactory.setNamespaceAware(false);
@@ -43,6 +47,11 @@ public class PomReader {
 
     /**
      * Reads dependencies from a POM file.
+     *
+     * @param pomFile the path to the POM file
+     * @return the parsed POM information
+     * @throws PomParsingException if parsing fails
+     * @throws NullPointerException if pomFile is null
      */
     @NotNull
     public PomInfo readPom(@NotNull Path pomFile) throws PomParsingException {
@@ -61,6 +70,12 @@ public class PomReader {
 
     /**
      * Reads dependencies from a POM input stream.
+     *
+     * @param inputStream the input stream containing the POM content
+     * @param source the source description for error reporting
+     * @return the parsed POM information
+     * @throws PomParsingException if parsing fails
+     * @throws NullPointerException if any parameter is null
      */
     @NotNull
     public PomInfo readPom(@NotNull InputStream inputStream, @NotNull String source) throws PomParsingException {
@@ -82,20 +97,25 @@ public class PomReader {
         }
     }
 
+    /**
+     * Parses a POM document into structured information.
+     *
+     * @param document the XML document representing the POM
+     * @param source the source description for error reporting
+     * @return the parsed POM information
+     * @throws PomParsingException if parsing fails
+     */
     @NotNull
     private PomInfo parsePomDocument(@NotNull Document document, @NotNull String source) throws PomParsingException {
         XPath xpath = xPathFactory.newXPath();
 
         try {
-            // Extract project information
             String groupId = getTextContent(xpath, document, "/project/groupId");
             String artifactId = getTextContent(xpath, document, "/project/artifactId");
             String version = getTextContent(xpath, document, "/project/version");
 
-            // Extract parent information
             ParentInfo parentInfo = extractParentInfo(xpath, document);
 
-            // Try parent if not found
             if (groupId == null && parentInfo != null) {
                 groupId = parentInfo.groupId();
             }
@@ -107,18 +127,14 @@ public class PomReader {
                 throw new PomParsingException("No artifactId found in POM: " + source);
             }
 
-            // Extract properties for version resolution
             Map<String, String> properties = extractProperties(xpath, document);
 
-            // Add built-in properties
             if (groupId != null) properties.put("project.groupId", groupId);
             if (artifactId != null) properties.put("project.artifactId", artifactId);
             if (version != null) properties.put("project.version", version);
 
-            // Extract dependency management for version resolution
             Map<String, String> dependencyManagement = extractDependencyManagement(xpath, document, properties);
 
-            // Extract dependencies
             List<Dependency> dependencies = extractDependencies(xpath, document, properties, dependencyManagement);
 
             return new PomInfo(
@@ -136,6 +152,14 @@ public class PomReader {
         }
     }
 
+    /**
+     * Extracts parent POM information if present.
+     *
+     * @param xpath the XPath evaluator
+     * @param document the XML document
+     * @return the parent POM information, or null if not present
+     * @throws XPathExpressionException if XPath evaluation fails
+     */
     @Nullable
     private ParentInfo extractParentInfo(@NotNull XPath xpath, @NotNull Document document) throws XPathExpressionException {
         String parentGroupId = getTextContent(xpath, document, "/project/parent/groupId");
@@ -149,6 +173,14 @@ public class PomReader {
         return null;
     }
 
+    /**
+     * Extracts properties from the POM.
+     *
+     * @param xpath the XPath evaluator
+     * @param document the XML document
+     * @return a map of property names to values
+     * @throws XPathExpressionException if XPath evaluation fails
+     */
     @NotNull
     private Map<String, String> extractProperties(@NotNull XPath xpath, @NotNull Document document) throws XPathExpressionException {
         Map<String, String> properties = new HashMap<>();
@@ -168,6 +200,15 @@ public class PomReader {
         return properties;
     }
 
+    /**
+     * Extracts dependency management information.
+     *
+     * @param xpath the XPath evaluator
+     * @param document the XML document
+     * @param properties the properties for resolving property references
+     * @return a map of dependency coordinates to versions
+     * @throws XPathExpressionException if XPath evaluation fails
+     */
     @NotNull
     private Map<String, String> extractDependencyManagement(@NotNull XPath xpath, @NotNull Document document,
                                                             @NotNull Map<String, String> properties) throws XPathExpressionException {
@@ -194,13 +235,22 @@ public class PomReader {
         return managedVersions;
     }
 
+    /**
+     * Extracts dependencies from the POM.
+     *
+     * @param xpath the XPath evaluator
+     * @param document the XML document
+     * @param properties the properties for resolving property references
+     * @param dependencyManagement the dependency management information
+     * @return a list of dependencies
+     * @throws XPathExpressionException if XPath evaluation fails
+     */
     @NotNull
     private List<Dependency> extractDependencies(@NotNull XPath xpath, @NotNull Document document,
                                                  @NotNull Map<String, String> properties,
                                                  @NotNull Map<String, String> dependencyManagement) throws XPathExpressionException {
         List<Dependency> dependencies = new ArrayList<>();
 
-        // Try multiple XPath expressions to find dependencies
         String[] xpathExpressions = {
                 "//dependencies/dependency",
                 "//project/dependencies/dependency",
@@ -216,7 +266,7 @@ public class PomReader {
         }
 
         if (dependencyNodes == null || dependencyNodes.getLength() == 0) {
-            return dependencies; // No dependencies found
+            return dependencies;
         }
 
         for (int i = 0; i < dependencyNodes.getLength(); i++) {
@@ -228,7 +278,6 @@ public class PomReader {
                     dependencies.add(dependency);
                 }
             } catch (Exception e) {
-                // Log and skip invalid dependency entries
                 System.err.println("Skipping invalid dependency entry: " + e.getMessage());
             }
         }
@@ -236,6 +285,14 @@ public class PomReader {
         return dependencies;
     }
 
+    /**
+     * Parses a dependency node into a Dependency object.
+     *
+     * @param dependencyNode the XML node for the dependency
+     * @param properties the properties for resolving property references
+     * @param dependencyManagement the dependency management information
+     * @return the parsed Dependency, or null if invalid
+     */
     @Nullable
     private Dependency parseDependencyNode(@NotNull Node dependencyNode,
                                            @NotNull Map<String, String> properties,
@@ -246,14 +303,12 @@ public class PomReader {
         String classifier = getChildNodeText(dependencyNode, "classifier");
 
         if (groupId == null || artifactId == null) {
-            return null; // Required fields missing
+            return null;
         }
 
-        // Resolve properties
         groupId = resolveProperties(groupId, properties);
         artifactId = resolveProperties(artifactId, properties);
 
-        // Resolve version from dependency management if not specified
         if (version == null || version.trim().isEmpty()) {
             version = dependencyManagement.get(groupId + ":" + artifactId);
         }
@@ -263,10 +318,9 @@ public class PomReader {
         }
 
         if (version == null || version.trim().isEmpty()) {
-            return null; // No version available - will need to resolve from metadata
+            return null;
         }
 
-        // Handle classifier
         if (classifier != null) {
             classifier = resolveProperties(classifier, properties);
         }
@@ -279,37 +333,46 @@ public class PomReader {
                 .build();
     }
 
+    /**
+     * Determines if a dependency should be included in the result.
+     *
+     * @param dependencyNode the XML node for the dependency
+     * @return true if the dependency should be included, false otherwise
+     */
     private boolean shouldIncludeDependency(@NotNull Node dependencyNode) {
         String scope = getChildNodeText(dependencyNode, "scope");
         String optional = getChildNodeText(dependencyNode, "optional");
 
-        // Default scope
         if (scope == null || scope.trim().isEmpty()) {
             scope = "compile";
         }
 
-        // Include compile and runtime scope dependencies
         if (!"compile".equals(scope) && !"runtime".equals(scope)) {
             return false;
         }
 
-        // Exclude optional dependencies
         return !"true".equals(optional);
     }
 
+    /**
+     * Resolves property references in a string.
+     *
+     * @param value the string potentially containing property references
+     * @param properties the properties to use for resolution
+     * @return the string with property references resolved
+     */
     @NotNull
     private String resolveProperties(@NotNull String value, @NotNull Map<String, String> properties) {
         String resolved = value;
 
-        // Simple property resolution - handle ${property.name} format
-        int maxIterations = 10; // Prevent infinite loops
+        int maxIterations = 10;
         int iteration = 0;
 
         while (resolved.contains("${") && iteration < maxIterations) {
             int start = resolved.indexOf("${");
             int end = resolved.indexOf("}", start);
 
-            if (end == -1) break; // Malformed property reference
+            if (end == -1) break;
 
             String propertyName = resolved.substring(start + 2, end);
             String propertyValue = properties.get(propertyName);
@@ -317,7 +380,6 @@ public class PomReader {
             if (propertyValue != null) {
                 resolved = resolved.substring(0, start) + propertyValue + resolved.substring(end + 1);
             } else {
-                // Property not found - leave as is
                 break;
             }
 
@@ -327,12 +389,28 @@ public class PomReader {
         return resolved;
     }
 
+    /**
+     * Gets text content from an XML node selected by XPath.
+     *
+     * @param xpath the XPath evaluator
+     * @param document the XML document
+     * @param expression the XPath expression
+     * @return the text content, or null if not found
+     * @throws XPathExpressionException if XPath evaluation fails
+     */
     @Nullable
     private String getTextContent(@NotNull XPath xpath, @NotNull Document document, @NotNull String expression) throws XPathExpressionException {
         Node node = (Node) xpath.evaluate(expression, document, XPathConstants.NODE);
         return node != null ? node.getTextContent().trim() : null;
     }
 
+    /**
+     * Gets text content from a child node.
+     *
+     * @param parentNode the parent XML node
+     * @param childName the name of the child node
+     * @return the text content, or null if not found
+     */
     @Nullable
     private String getChildNodeText(@NotNull Node parentNode, @NotNull String childName) {
         NodeList childNodes = parentNode.getChildNodes();
@@ -349,12 +427,24 @@ public class PomReader {
 
     /**
      * Parent POM information.
+     *
+     * @param groupId the parent group ID
+     * @param artifactId the parent artifact ID
+     * @param version the parent version
      */
     public record ParentInfo(
             @NotNull String groupId,
             @NotNull String artifactId,
             @NotNull String version
     ) {
+        /**
+         * Creates a new ParentInfo.
+         *
+         * @param groupId the parent group ID
+         * @param artifactId the parent artifact ID
+         * @param version the parent version
+         * @throws NullPointerException if any parameter is null
+         */
         public ParentInfo {
             requireNonNull(groupId, "Group ID cannot be null");
             requireNonNull(artifactId, "Artifact ID cannot be null");
@@ -363,6 +453,8 @@ public class PomReader {
 
         /**
          * Creates a Dependency for this parent.
+         *
+         * @return a Dependency object representing this parent
          */
         @NotNull
         public Dependency toDependency() {
@@ -372,10 +464,30 @@ public class PomReader {
 
     /**
      * Information extracted from a POM file.
+     *
+     * @param groupId the group ID, or null if not specified
+     * @param artifactId the artifact ID
+     * @param version the version, or null if not specified
+     * @param dependencies the list of dependencies
+     * @param properties the map of properties
+     * @param dependencyManagement the map of dependency management entries
+     * @param parentInfo the parent POM information, or null if not present
      */
     public record PomInfo(String groupId, String artifactId, String version, List<Dependency> dependencies,
                           Map<String, String> properties, Map<String, String> dependencyManagement,
                           ParentInfo parentInfo) {
+        /**
+         * Creates a new PomInfo.
+         *
+         * @param groupId the group ID, or null if not specified
+         * @param artifactId the artifact ID
+         * @param version the version, or null if not specified
+         * @param dependencies the list of dependencies
+         * @param properties the map of properties
+         * @param dependencyManagement the map of dependency management entries
+         * @param parentInfo the parent POM information, or null if not present
+         * @throws NullPointerException if artifactId is null
+         */
         public PomInfo(@Nullable String groupId,
                        @NotNull String artifactId,
                        @Nullable String version,
@@ -392,58 +504,20 @@ public class PomReader {
             this.parentInfo = parentInfo;
         }
 
-        @Override
-        @Nullable
-        public String groupId() {
-            return groupId;
-        }
-
-        @Override
+        /**
+         * Gets runtime dependencies (filtering out test and provided scope).
+         *
+         * @return the list of runtime dependencies
+         */
         @NotNull
-        public String artifactId() {
-            return artifactId;
-        }
-
-        @Override
-        @Nullable
-        public String version() {
-            return version;
-        }
-
-        @Override
-        @NotNull
-        public List<Dependency> dependencies() {
+        public List<Dependency> getRuntimeDependencies() {
             return dependencies;
         }
 
         /**
-         * Gets runtime dependencies (filtering out test and provided scope).
-         */
-        @NotNull
-        public List<Dependency> getRuntimeDependencies() {
-            return dependencies; // Already filtered during parsing
-        }
-
-        @Override
-        @NotNull
-        public Map<String, String> properties() {
-            return properties;
-        }
-
-        @Override
-        @NotNull
-        public Map<String, String> dependencyManagement() {
-            return dependencyManagement;
-        }
-
-        @Override
-        @Nullable
-        public ParentInfo parentInfo() {
-            return parentInfo;
-        }
-
-        /**
          * Checks if this POM has a parent.
+         *
+         * @return true if this POM has a parent, false otherwise
          */
         public boolean hasParent() {
             return parentInfo != null;
@@ -451,6 +525,8 @@ public class PomReader {
 
         /**
          * Gets the project dependency if groupId and version are available.
+         *
+         * @return the project dependency, or null if insufficient information
          */
         @Nullable
         public Dependency getProjectDependency() {
@@ -465,10 +541,21 @@ public class PomReader {
      * Exception thrown when POM parsing fails.
      */
     public static class PomParsingException extends Exception {
+        /**
+         * Creates a new PomParsingException with the specified message.
+         *
+         * @param message the detail message
+         */
         public PomParsingException(String message) {
             super(message);
         }
 
+        /**
+         * Creates a new PomParsingException with the specified message and cause.
+         *
+         * @param message the detail message
+         * @param cause the cause of this exception
+         */
         public PomParsingException(String message, Throwable cause) {
             super(message, cause);
         }

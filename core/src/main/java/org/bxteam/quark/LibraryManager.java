@@ -42,7 +42,6 @@ public abstract class LibraryManager implements AutoCloseable {
     protected final Set<Repository> globalRepositories = ConcurrentHashMap.newKeySet();
     private final AtomicBoolean mavenCentralWarningShown = new AtomicBoolean(false);
 
-    // Dependency resolution configuration
     private boolean includeDependencyManagement = false;
     private int maxTransitiveDepth = Integer.MAX_VALUE;
     private final Set<String> excludedGroupIds = ConcurrentHashMap.newKeySet();
@@ -94,6 +93,10 @@ public abstract class LibraryManager implements AutoCloseable {
         logger.debug("Initialized LibraryManager with data directory: " + dataDirectory);
     }
 
+    /**
+     * Updates the dependency resolver with current configuration settings.
+     * This method is called when repository or dependency resolution settings change.
+     */
     private void updateDependencyResolver() {
         List<Repository> allRepositories = new ArrayList<>();
         allRepositories.add(localRepository);
@@ -330,15 +333,14 @@ public abstract class LibraryManager implements AutoCloseable {
 
     /**
      * Configures dependency resolution with common-sense defaults to minimize downloads.
-     *
-     * <p>This method configures the dependency resolver to:
+     * <p>
+     * This method configures the dependency resolver to:
      * <ul>
      *   <li>Limit transitive dependencies to 3 levels deep</li>
      *   <li>Skip optional dependencies</li>
      *   <li>Skip test dependencies</li>
      *   <li>Exclude common logging frameworks</li>
      * </ul>
-     * </p>
      *
      * @return this library manager instance for chaining
      */
@@ -481,6 +483,13 @@ public abstract class LibraryManager implements AutoCloseable {
         }
     }
 
+    /**
+     * Applies relocations to resolved dependencies if needed.
+     *
+     * @param resolvedDependencies the list of resolved dependencies
+     * @param relocations the list of relocations to apply
+     * @return a list of dependency load entries
+     */
     @NotNull
     private List<DependencyLoadEntry> applyRelocations(@NotNull List<DependencyResolver.ResolvedDependency> resolvedDependencies,
                                                        @NotNull List<Relocation> relocations) {
@@ -505,6 +514,14 @@ public abstract class LibraryManager implements AutoCloseable {
         return loadEntries;
     }
 
+    /**
+     * Applies relocations to a single dependency JAR if needed.
+     *
+     * @param dependency the dependency
+     * @param jarPath the path to the dependency JAR
+     * @param relocations the list of relocations to apply
+     * @return the path to the final JAR (relocated or original)
+     */
     @NotNull
     private Path applyRelocations(@NotNull Dependency dependency, @NotNull Path jarPath, @NotNull List<Relocation> relocations) {
         if (relocations.isEmpty()) {
@@ -692,6 +709,10 @@ public abstract class LibraryManager implements AutoCloseable {
         );
     }
 
+    /**
+     * Closes the LibraryManager and releases all resources.
+     * This includes closing all class loaders and the relocation handler.
+     */
     @Override
     public void close() {
         logger.debug("Shutting down LibraryManager...");
@@ -718,6 +739,13 @@ public abstract class LibraryManager implements AutoCloseable {
      * @param path the local file system path to the JAR file
      */
     public record DependencyLoadEntry(@NotNull Dependency dependency, @NotNull Path path) {
+        /**
+         * Creates a new DependencyLoadEntry.
+         *
+         * @param dependency the dependency information
+         * @param path the local file system path to the JAR file
+         * @throws NullPointerException if any parameter is null
+         */
         public DependencyLoadEntry {
             requireNonNull(dependency, "Dependency cannot be null");
             requireNonNull(path, "Path cannot be null");
@@ -732,6 +760,11 @@ public abstract class LibraryManager implements AutoCloseable {
      * @param isolatedClassLoaderCount the number of created isolated class loaders
      */
     public record LibraryManagerStats(int repositoryCount, int loadedDependencyCount, int isolatedClassLoaderCount) {
+        /**
+         * Returns a string representation of the statistics.
+         *
+         * @return a string containing all statistics values
+         */
         @Override
         public String toString() {
             return String.format("LibraryManagerStats{repositories=%d, loadedDependencies=%d, isolatedClassLoaders=%d}",

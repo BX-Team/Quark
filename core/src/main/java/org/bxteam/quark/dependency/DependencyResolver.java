@@ -20,9 +20,6 @@ import static java.util.Objects.requireNonNull;
 
 /**
  * Resolves Maven dependencies and their transitive dependencies.
- *
- * @author BxTeam
- * @since 1.0.0
  */
 public class DependencyResolver {
     private final Logger logger;
@@ -32,25 +29,27 @@ public class DependencyResolver {
     private final MetadataReader metadataReader;
     private final boolean includeDependencyManagement;
 
-    // Dependency download limiting options
     private final int maxTransitiveDepth;
     private final Set<String> excludedGroupIds;
     private final List<Pattern> excludedArtifactPatterns;
     private final boolean skipOptionalDependencies;
     private final boolean skipTestDependencies;
 
-    // Caches to avoid redundant operations
     private final Map<String, PomReader.PomInfo> pomCache = new ConcurrentHashMap<>();
     private final Map<String, MetadataReader.MavenMetadata> metadataCache = new ConcurrentHashMap<>();
     private final Map<String, String> resolvedVersionCache = new ConcurrentHashMap<>();
     private final Set<String> processedDependencies = ConcurrentHashMap.newKeySet();
     private final Map<String, Integer> dependencyDepths = new ConcurrentHashMap<>();
 
-    // Global dependency management from all parent POMs
     private final Map<String, String> globalDependencyManagement = new ConcurrentHashMap<>();
 
     /**
      * Creates a new DependencyResolver with default settings.
+     *
+     * @param logger the logger for reporting resolution progress and errors
+     * @param repositories the list of repositories to search for dependencies
+     * @param localRepository the path to the local repository for caching dependencies
+     * @throws NullPointerException if any parameter is null
      */
     public DependencyResolver(@NotNull Logger logger,
                               @NotNull List<Repository> repositories,
@@ -60,6 +59,9 @@ public class DependencyResolver {
 
     /**
      * Creates a new DependencyResolver with the specified settings.
+     *
+     * @param builder the builder containing all resolution configuration
+     * @throws NullPointerException if builder is null
      */
     private DependencyResolver(Builder builder) {
         this.logger = requireNonNull(builder.logger, "Logger cannot be null");
@@ -89,6 +91,14 @@ public class DependencyResolver {
         private boolean skipOptionalDependencies = true;
         private boolean skipTestDependencies = true;
 
+        /**
+         * Creates a new Builder with required parameters.
+         *
+         * @param logger the logger for reporting resolution progress and errors
+         * @param repositories the list of repositories to search for dependencies
+         * @param localRepository the path to the local repository for caching dependencies
+         * @throws NullPointerException if any parameter is null
+         */
         public Builder(@NotNull Logger logger,
                        @NotNull List<Repository> repositories,
                        @NotNull Path localRepository) {
@@ -100,6 +110,9 @@ public class DependencyResolver {
         /**
          * Include dependencies from dependencyManagement sections.
          * Default: false
+         *
+         * @param include whether to include dependencyManagement sections
+         * @return this builder for chaining
          */
         public Builder includeDependencyManagement(boolean include) {
             this.includeDependencyManagement = include;
@@ -110,6 +123,9 @@ public class DependencyResolver {
          * Set the maximum depth for transitive dependencies.
          * Root dependencies have depth 0.
          * Default: Integer.MAX_VALUE (no limit)
+         *
+         * @param depth the maximum depth of transitive dependencies to resolve
+         * @return this builder for chaining
          */
         public Builder maxTransitiveDepth(int depth) {
             this.maxTransitiveDepth = Math.max(0, depth);
@@ -118,6 +134,9 @@ public class DependencyResolver {
 
         /**
          * Exclude dependencies with the specified group IDs.
+         *
+         * @param groupIds the group IDs to exclude
+         * @return this builder for chaining
          */
         public Builder excludeGroupIds(String... groupIds) {
             this.excludedGroupIds.addAll(Arrays.asList(groupIds));
@@ -127,10 +146,12 @@ public class DependencyResolver {
         /**
          * Exclude dependencies matching the specified patterns.
          * Patterns are in the format "groupId:artifactId" and support wildcards (*).
+         *
+         * @param patterns the patterns to exclude
+         * @return this builder for chaining
          */
         public Builder excludeArtifacts(String... patterns) {
             for (String pattern : patterns) {
-                // Convert Maven-style wildcards to regex
                 String regex = pattern
                         .replace(".", "\\.")
                         .replace("*", ".*");
@@ -142,6 +163,9 @@ public class DependencyResolver {
         /**
          * Skip optional dependencies.
          * Default: true
+         *
+         * @param skip whether to skip optional dependencies
+         * @return this builder for chaining
          */
         public Builder skipOptionalDependencies(boolean skip) {
             this.skipOptionalDependencies = skip;
@@ -151,6 +175,9 @@ public class DependencyResolver {
         /**
          * Skip test dependencies.
          * Default: true
+         *
+         * @param skip whether to skip test dependencies
+         * @return this builder for chaining
          */
         public Builder skipTestDependencies(boolean skip) {
             this.skipTestDependencies = skip;
@@ -159,6 +186,8 @@ public class DependencyResolver {
 
         /**
          * Build the DependencyResolver with the configured settings.
+         *
+         * @return a new DependencyResolver instance
          */
         public DependencyResolver build() {
             return new DependencyResolver(this);
@@ -167,6 +196,14 @@ public class DependencyResolver {
 
     /**
      * Resolves all transitive dependencies for the given root dependencies.
+     *
+     * <p>This method performs a full dependency resolution, downloading POM files,
+     * processing transitive dependencies, and downloading JAR files for all
+     * resolved dependencies according to the configured resolution settings.</p>
+     *
+     * @param rootDependencies the root dependencies to resolve
+     * @return the resolution result containing all resolved dependencies and any errors
+     * @throws NullPointerException if rootDependencies is null
      */
     @NotNull
     public ResolutionResult resolveDependencies(@NotNull Collection<Dependency> rootDependencies) {
@@ -174,7 +211,6 @@ public class DependencyResolver {
 
         logger.info("Resolving dependencies...");
 
-        // Clear caches for fresh resolution
         pomCache.clear();
         metadataCache.clear();
         resolvedVersionCache.clear();
@@ -186,14 +222,12 @@ public class DependencyResolver {
         Set<Dependency> toProcess = new LinkedHashSet<>(rootDependencies);
         List<String> resolutionErrors = new ArrayList<>();
 
-        // Initialize root dependencies with depth 0
         for (Dependency root : rootDependencies) {
             dependencyDepths.put(root.getCoordinates(), 0);
         }
 
         int iteration = 1;
 
-        // Phase 1: Collect all dependencies by parsing POMs
         while (!toProcess.isEmpty()) {
             Set<Dependency> currentBatch = new LinkedHashSet<>(toProcess);
             toProcess.clear();
@@ -204,44 +238,36 @@ public class DependencyResolver {
                 String dependencyKey = dependency.getCoordinates();
 
                 if (processedDependencies.contains(dependencyKey)) {
-                    continue; // Already processed
+                    continue;
                 }
 
                 try {
-                    // Skip excluded dependencies
                     if (shouldExcludeDependency(dependency)) {
                         logger.debug("Skipping excluded dependency: " + dependency.toShortString());
                         processedDependencies.add(dependencyKey);
                         continue;
                     }
 
-                    // Get current depth of this dependency
                     int currentDepth = dependencyDepths.getOrDefault(dependencyKey, 0);
 
-                    // Skip if exceeds max depth (but always process root dependencies)
                     if (currentDepth > 0 && currentDepth > maxTransitiveDepth) {
                         logger.debug("Skipping dependency exceeding max depth: " + dependency.toShortString());
                         processedDependencies.add(dependencyKey);
                         continue;
                     }
 
-                    // Resolve version if needed
                     Dependency resolvedDependency = resolveDependencyVersion(dependency);
                     logger.debug("Processing: " + resolvedDependency.toShortString());
 
-                    // Add to resolved dependencies
                     allDependencies.add(resolvedDependency);
                     processedDependencies.add(dependencyKey);
 
-                    // Download and parse POM with full dependency resolution
                     PomContext pomContext = downloadAndProcessPom(resolvedDependency);
                     if (pomContext != null) {
                         logger.debug("Found " + pomContext.allDependencies().size() + " transitive dependencies for " + resolvedDependency.toShortString());
-                        // Add transitive dependencies to next batch
                         for (Dependency transitive : pomContext.allDependencies()) {
                             String transitiveKey = transitive.getCoordinates();
                             if (!processedDependencies.contains(transitiveKey)) {
-                                // Set depth for the transitive dependency
                                 dependencyDepths.put(transitiveKey, currentDepth + 1);
                                 toProcess.add(transitive);
                                 logger.debug("  + " + transitive.toShortString() + " (depth " + (currentDepth + 1) + ")");
@@ -258,7 +284,6 @@ public class DependencyResolver {
 
             iteration++;
 
-            // Safety check to prevent infinite loops
             if (iteration > 50) {
                 resolutionErrors.add("Maximum resolution iterations reached - possible circular dependencies");
                 break;
@@ -267,7 +292,6 @@ public class DependencyResolver {
 
         logger.info("Resolved " + allDependencies.size() + " dependencies");
 
-        // Phase 2: Download all JAR files
         List<ResolvedDependency> resolvedDependencies = new ArrayList<>();
 
         for (Dependency dependency : allDependencies) {
@@ -275,7 +299,6 @@ public class DependencyResolver {
                 DownloadResult downloadResult = downloadJar(dependency);
                 resolvedDependencies.add(new ResolvedDependency(dependency, downloadResult.jarPath()));
 
-                // Log successful downloads with repository info
                 if (downloadResult.downloadedFrom() != null) {
                     logger.info("Downloaded " + dependency.toShortString() + " from " + downloadResult.downloadedFrom());
                 }
@@ -292,14 +315,15 @@ public class DependencyResolver {
 
     /**
      * Checks if a dependency should be excluded based on configured exclusion rules.
+     *
+     * @param dependency the dependency to check
+     * @return true if the dependency should be excluded, false otherwise
      */
     private boolean shouldExcludeDependency(Dependency dependency) {
-        // Check group ID exclusions
         if (excludedGroupIds.contains(dependency.getGroupId())) {
             return true;
         }
 
-        // Check pattern exclusions
         String coordinates = dependency.getGroupArtifactId();
         for (Pattern pattern : excludedArtifactPatterns) {
             if (pattern.matcher(coordinates).matches()) {
@@ -312,20 +336,21 @@ public class DependencyResolver {
 
     /**
      * Downloads and processes POM including parent hierarchy.
+     *
+     * @param dependency the dependency to process
+     * @return a POM context containing processed information, or null if POM not found
+     * @throws Exception if an error occurs during processing
      */
     @Nullable
     private PomContext downloadAndProcessPom(@NotNull Dependency dependency) throws Exception {
-        // Download and parse the main POM
         PomReader.PomInfo pomInfo = downloadAndParsePom(dependency);
         if (pomInfo == null) {
             logger.debug("No POM found for: " + dependency.toShortString());
-            return null; // No POM available
+            return null;
         }
 
-        // Process parent POM hierarchy
         PomReader.PomInfo mergedPomInfo = processParentHierarchy(pomInfo);
 
-        // Resolve all dependencies from the merged POM
         List<Dependency> resolvedDependencies = resolveAllDependencies(mergedPomInfo);
 
         return new PomContext(mergedPomInfo, resolvedDependencies);
@@ -333,16 +358,18 @@ public class DependencyResolver {
 
     /**
      * Processes the complete parent POM hierarchy.
+     *
+     * @param pomInfo the child POM information
+     * @return the merged POM information including parent data
+     * @throws Exception if an error occurs during processing
      */
     @NotNull
     private PomReader.PomInfo processParentHierarchy(@NotNull PomReader.PomInfo pomInfo) throws Exception {
         List<PomReader.PomInfo> pomHierarchy = new ArrayList<>();
 
-        // Collect all POMs in the hierarchy (child to parent)
         PomReader.PomInfo currentPom = pomInfo;
         pomHierarchy.add(currentPom);
 
-        // Follow parent chain
         while (currentPom.hasParent()) {
             PomReader.ParentInfo parentInfo = currentPom.parentInfo();
             Dependency parentDependency = parentInfo.toDependency();
@@ -357,19 +384,21 @@ public class DependencyResolver {
             pomHierarchy.add(parentPom);
             currentPom = parentPom;
 
-            // Safety check to prevent infinite parent loops
             if (pomHierarchy.size() > 10) {
                 logger.warn("Maximum parent hierarchy depth reached (10) for " + pomInfo.artifactId());
                 break;
             }
         }
 
-        // Merge POMs from parent to child (parent dependency management has lower priority)
         return mergePomHierarchy(pomHierarchy);
     }
 
     /**
      * Merges POM hierarchy from parents to child.
+     *
+     * @param pomHierarchy the list of POMs in the hierarchy (child first, then parents)
+     * @return the merged POM information
+     * @throws IllegalArgumentException if the hierarchy is empty
      */
     @NotNull
     private PomReader.PomInfo mergePomHierarchy(@NotNull List<PomReader.PomInfo> pomHierarchy) {
@@ -379,30 +408,24 @@ public class DependencyResolver {
 
         if (pomHierarchy.size() == 1) {
             PomReader.PomInfo singlePom = pomHierarchy.get(0);
-            // Add to global dependency management
             globalDependencyManagement.putAll(singlePom.dependencyManagement());
             logger.debug("Added " + singlePom.dependencyManagement().size() + " entries to global dependency management from " + singlePom.artifactId());
             return singlePom;
         }
 
-        // Start with the topmost parent (last in list)
         Map<String, String> mergedDependencyManagement = new HashMap<>();
         Map<String, String> mergedProperties = new HashMap<>();
 
-        // Merge from parent to child (reverse order)
         for (int i = pomHierarchy.size() - 1; i >= 0; i--) {
             PomReader.PomInfo pom = pomHierarchy.get(i);
 
-            // Parent properties and dependency management have lower priority (child overrides parent)
             Map<String, String> pomProperties = pom.properties();
             for (Map.Entry<String, String> entry : pomProperties.entrySet()) {
                 mergedProperties.putIfAbsent(entry.getKey(), entry.getValue());
             }
 
-            // Process dependencyManagement - child entries override parent entries
             Map<String, String> pomDependencyManagement = pom.dependencyManagement();
             for (Map.Entry<String, String> entry : pomDependencyManagement.entrySet()) {
-                // In standard Maven, child entries override parent entries
                 if (i == 0) {
                     mergedDependencyManagement.put(entry.getKey(), entry.getValue());
                 } else {
@@ -411,14 +434,11 @@ public class DependencyResolver {
             }
         }
 
-        // Add to global dependency management
         globalDependencyManagement.putAll(mergedDependencyManagement);
         logger.debug("Merged " + mergedDependencyManagement.size() + " dependency management entries from hierarchy");
 
-        // Use the child POM (first in list) as base
         PomReader.PomInfo childPom = pomHierarchy.get(0);
 
-        // Create a merged POM info
         return new PomReader.PomInfo(
                 childPom.groupId(),
                 childPom.artifactId(),
@@ -432,33 +452,31 @@ public class DependencyResolver {
 
     /**
      * Resolves all dependencies from a POM with version resolution.
+     *
+     * @param pomInfo the POM information
+     * @return a list of resolved dependencies
      */
     @NotNull
     private List<Dependency> resolveAllDependencies(@NotNull PomReader.PomInfo pomInfo) {
         List<Dependency> resolved = new ArrayList<>();
 
-        // Process regular dependencies
         for (Dependency dependency : pomInfo.getRuntimeDependencies()) {
             try {
-                // Skip optional dependencies if configured
                 if (skipOptionalDependencies && dependency.isOptional()) {
                     logger.debug("Skipping optional dependency: " + dependency.toShortString());
                     continue;
                 }
 
-                // Skip test dependencies if configured
                 if (skipTestDependencies && "test".equals(dependency.getScope())) {
                     logger.debug("Skipping test dependency: " + dependency.toShortString());
                     continue;
                 }
 
-                // Skip excluded dependencies
                 if (shouldExcludeDependency(dependency)) {
                     logger.debug("Skipping excluded dependency: " + dependency.toShortString());
                     continue;
                 }
 
-                // Special handling for dependencies without version - must be resolved from dependencyManagement
                 Dependency resolvedDep;
                 if (dependency.getVersion() == null || dependency.getVersion().trim().isEmpty()) {
                     resolvedDep = resolveDependencyFromManagement(dependency, pomInfo);
@@ -468,7 +486,6 @@ public class DependencyResolver {
                 }
 
                 if (resolvedDep.getVersion() == null || resolvedDep.getVersion().trim().isEmpty()) {
-                    // If still no version, try metadata
                     resolvedDep = resolveDependencyVersion(resolvedDep);
                 }
 
@@ -477,12 +494,11 @@ public class DependencyResolver {
             } catch (Exception e) {
                 logger.debug("Could not resolve dependency: " + dependency.getGroupArtifactId() + " - " + e.getMessage());
 
-                // Try to resolve without version from metadata as fallback
                 try {
                     Dependency withoutVersion = Dependency.builder()
                             .groupId(dependency.getGroupId())
                             .artifactId(dependency.getArtifactId())
-                            .version("") // Will be resolved from metadata
+                            .version("")
                             .build();
                     Dependency resolvedFromMetadata = resolveDependencyVersion(withoutVersion);
                     resolved.add(resolvedFromMetadata);
@@ -493,7 +509,6 @@ public class DependencyResolver {
             }
         }
 
-        // Include dependencies from dependencyManagement if configured
         if (includeDependencyManagement) {
             resolveDependenciesFromDependencyManagement(pomInfo, resolved);
         }
@@ -503,11 +518,12 @@ public class DependencyResolver {
 
     /**
      * Extracts and resolves dependencies defined in dependencyManagement sections.
+     *
+     * @param pomInfo the POM information
+     * @param resolvedList the list to add resolved dependencies to
      */
     private void resolveDependenciesFromDependencyManagement(@NotNull PomReader.PomInfo pomInfo, @NotNull List<Dependency> resolvedList) {
-        // Process dependency management entries
         Map<String, String> dependencyManagement = new HashMap<>(pomInfo.dependencyManagement());
-        // Also include global dependency management
         dependencyManagement.putAll(globalDependencyManagement);
 
         logger.debug("Processing " + dependencyManagement.size() + " entries from dependencyManagement");
@@ -517,7 +533,6 @@ public class DependencyResolver {
             String version = entry.getValue();
 
             try {
-                // Skip if already processed through regular dependencies
                 boolean alreadyIncluded = resolvedList.stream()
                         .anyMatch(d -> d.getGroupArtifactId().equals(dependencyKey));
 
@@ -525,10 +540,9 @@ public class DependencyResolver {
                     continue;
                 }
 
-                // Create dependency from dependencyManagement entry
                 String[] parts = dependencyKey.split(":");
                 if (parts.length != 2) {
-                    continue; // Invalid format
+                    continue;
                 }
 
                 Dependency managementDep = Dependency.builder()
@@ -537,13 +551,11 @@ public class DependencyResolver {
                         .version(version)
                         .build();
 
-                // Skip excluded dependencies
                 if (shouldExcludeDependency(managementDep)) {
                     logger.debug("Skipping excluded dependency from management: " + managementDep.toShortString());
                     continue;
                 }
 
-                // Validate dependency before adding
                 if (managementDep.getGroupId() != null && managementDep.getArtifactId() != null &&
                         managementDep.getVersion() != null && !managementDep.getVersion().isEmpty()) {
                     resolvedList.add(managementDep);
@@ -557,10 +569,13 @@ public class DependencyResolver {
 
     /**
      * Resolves dependency version using POM dependency management and global management.
+     *
+     * @param dependency the dependency to resolve
+     * @param pomInfo the POM information
+     * @return the dependency with resolved version
      */
     @NotNull
     private Dependency resolveDependencyFromManagement(@NotNull Dependency dependency, @NotNull PomReader.PomInfo pomInfo) {
-        // If dependency already has a version, return as is
         if (dependency.getVersion() != null && !dependency.getVersion().trim().isEmpty()) {
             return dependency;
         }
@@ -568,7 +583,6 @@ public class DependencyResolver {
         String dependencyKey = dependency.getGroupArtifactId();
         String version = null;
 
-        // Try local POM dependency management first
         if (pomInfo.dependencyManagement() != null) {
             version = pomInfo.dependencyManagement().get(dependencyKey);
             if (version != null && !version.trim().isEmpty()) {
@@ -576,7 +590,6 @@ public class DependencyResolver {
             }
         }
 
-        // Try global dependency management if local didn't have it
         if ((version == null || version.trim().isEmpty()) && !globalDependencyManagement.isEmpty()) {
             version = globalDependencyManagement.get(dependencyKey);
             if (version != null && !version.trim().isEmpty()) {
@@ -584,7 +597,6 @@ public class DependencyResolver {
             }
         }
 
-        // Try cached version
         if (version == null || version.trim().isEmpty()) {
             version = resolvedVersionCache.get(dependencyKey);
             if (version != null && !version.trim().isEmpty()) {
@@ -592,28 +604,28 @@ public class DependencyResolver {
             }
         }
 
-        // If we found a version, use it
         if (version != null && !version.trim().isEmpty()) {
             logger.debug("Resolved version for " + dependencyKey + " -> " + version);
             return dependency.withVersion(version);
         }
 
-        // Try to resolve from metadata as last resort
         logger.debug("Attempting to resolve version from metadata for " + dependencyKey);
         return resolveDependencyVersion(dependency);
     }
 
     /**
      * Resolves dependency version using metadata if version is missing.
+     *
+     * @param dependency the dependency to resolve
+     * @return the dependency with resolved version
+     * @throws RuntimeException if version cannot be resolved
      */
     @NotNull
     private Dependency resolveDependencyVersion(@NotNull Dependency dependency) {
-        // If dependency already has a version, return as is
         if (dependency.getVersion() != null && !dependency.getVersion().trim().isEmpty()) {
             return dependency;
         }
 
-        // Try to resolve version from metadata
         String versionKey = dependency.getGroupId() + ":" + dependency.getArtifactId();
         String cachedVersion = resolvedVersionCache.get(versionKey);
 
@@ -640,18 +652,20 @@ public class DependencyResolver {
 
     /**
      * Downloads and parses metadata for a dependency.
+     *
+     * @param dependency the dependency to get metadata for
+     * @return the parsed Maven metadata, or null if not found
+     * @throws Exception if an error occurs during download or parsing
      */
     @Nullable
     private MetadataReader.MavenMetadata downloadAndParseMetadata(@NotNull Dependency dependency) throws Exception {
         String metadataKey = dependency.getGroupArtifactId();
 
-        // Check cache first
         MetadataReader.MavenMetadata cached = metadataCache.get(metadataKey);
         if (cached != null) {
             return cached;
         }
 
-        // Try each repository
         for (Repository repository : repositories) {
             if (repository.isLocal()) {
                 continue;
@@ -675,32 +689,34 @@ public class DependencyResolver {
 
             } catch (Exception e) {
                 logger.debug("Failed to download metadata from " + repository.getUrl() + ": " + e.getMessage());
-                // Continue to next repository
             }
         }
 
         logger.debug("No metadata found for " + metadataKey);
-        return null; // No metadata found
+        return null;
     }
 
+    /**
+     * Downloads and parses a POM file for a dependency.
+     *
+     * @param dependency the dependency to process
+     * @return the parsed POM information, or null if not found
+     * @throws Exception if an error occurs during download or parsing
+     */
     @Nullable
     private PomReader.PomInfo downloadAndParsePom(@NotNull Dependency dependency) throws Exception {
         String pomKey = dependency.getCoordinates();
 
-        // Check cache first
         PomReader.PomInfo cached = pomCache.get(pomKey);
         if (cached != null) {
             return cached;
         }
 
-        // Try to download POM from repositories
         Path localPomPath = dependency.getPomPath(localRepository);
 
-        // Check if POM already exists locally
         if (Files.exists(localPomPath) && isValidPomFile(localPomPath)) {
             logger.debug("Using cached POM: " + dependency.toShortString());
         } else {
-            // Download POM from repositories
             try {
                 downloadPomFile(dependency, localPomPath);
             } catch (Exception e) {
@@ -709,7 +725,6 @@ public class DependencyResolver {
             }
         }
 
-        // Parse POM
         if (Files.exists(localPomPath)) {
             try {
                 PomReader.PomInfo pomInfo = pomReader.readPom(localPomPath);
@@ -721,26 +736,30 @@ public class DependencyResolver {
             }
         }
 
-        return null; // No POM available - treat as leaf dependency
+        return null;
     }
 
+    /**
+     * Downloads a POM file from repositories.
+     *
+     * @param dependency the dependency to download POM for
+     * @param localPomPath the local path to save the POM to
+     * @throws Exception if the download fails
+     */
     private void downloadPomFile(@NotNull Dependency dependency, @NotNull Path localPomPath) throws Exception {
         List<Exception> exceptions = new ArrayList<>();
 
-        // Create parent directories
         Files.createDirectories(localPomPath.getParent());
 
-        // Try each repository
         List<Repository> reposToTry = new ArrayList<>(repositories);
 
-        // Add fallback repository if specified
         if (dependency.getFallbackRepository() != null) {
             reposToTry.add(Repository.of(dependency.getFallbackRepository()));
         }
 
         for (Repository repository : reposToTry) {
             if (repository.isLocal()) {
-                continue; // Skip local repositories for downloading
+                continue;
             }
 
             try {
@@ -755,7 +774,7 @@ public class DependencyResolver {
                 try (InputStream inputStream = connection.getInputStream()) {
                     Files.copy(inputStream, localPomPath);
                     logger.debug("Successfully downloaded POM: " + dependency.toShortString());
-                    return; // Success
+                    return;
                 }
 
             } catch (Exception e) {
@@ -764,39 +783,40 @@ public class DependencyResolver {
             }
         }
 
-        // All repositories failed
         Exception lastException = exceptions.isEmpty() ?
                 new RuntimeException("No repositories configured") :
                 exceptions.get(exceptions.size() - 1);
         throw new RuntimeException("Failed to download POM for " + dependency.toShortString(), lastException);
     }
 
+    /**
+     * Downloads a JAR file from repositories.
+     *
+     * @param dependency the dependency to download JAR for
+     * @return the download result containing the JAR path and source repository
+     * @throws Exception if the download fails
+     */
     @NotNull
     private DownloadResult downloadJar(@NotNull Dependency dependency) throws Exception {
         Path localJarPath = dependency.getJarPath(localRepository);
 
-        // Check if JAR already exists locally
         if (Files.exists(localJarPath) && isValidJarFile(localJarPath)) {
-            return new DownloadResult(localJarPath, null); // Cached
+            return new DownloadResult(localJarPath, null);
         }
 
-        // Download JAR from repositories
         List<Exception> exceptions = new ArrayList<>();
 
-        // Create parent directories
         Files.createDirectories(localJarPath.getParent());
 
-        // Try each repository
         List<Repository> reposToTry = new ArrayList<>(repositories);
 
-        // Add fallback repository if specified
         if (dependency.getFallbackRepository() != null) {
             reposToTry.add(Repository.of(dependency.getFallbackRepository()));
         }
 
         for (Repository repository : reposToTry) {
             if (repository.isLocal()) {
-                continue; // Skip local repositories for downloading
+                continue;
             }
 
             try {
@@ -811,7 +831,7 @@ public class DependencyResolver {
                     Files.copy(inputStream, localJarPath);
 
                     if (isValidJarFile(localJarPath)) {
-                        return new DownloadResult(localJarPath, repository.getUrl()); // Success
+                        return new DownloadResult(localJarPath, repository.getUrl());
                     } else {
                         Files.deleteIfExists(localJarPath);
                         throw new RuntimeException("Downloaded JAR is invalid");
@@ -823,13 +843,18 @@ public class DependencyResolver {
             }
         }
 
-        // All repositories failed
         Exception lastException = exceptions.isEmpty() ?
                 new RuntimeException("No repositories configured") :
                 exceptions.get(exceptions.size() - 1);
         throw new RuntimeException("Failed to download JAR for " + dependency.toShortString(), lastException);
     }
 
+    /**
+     * Validates if a file is a valid POM file.
+     *
+     * @param pomFile the POM file path to check
+     * @return true if the file is a valid POM, false otherwise
+     */
     private boolean isValidPomFile(@NotNull Path pomFile) {
         try {
             if (!Files.exists(pomFile) || !Files.isRegularFile(pomFile) || Files.size(pomFile) == 0) {
@@ -845,6 +870,12 @@ public class DependencyResolver {
         }
     }
 
+    /**
+     * Validates if a file is a valid JAR file.
+     *
+     * @param jarFile the JAR file path to check
+     * @return true if the file is a valid JAR, false otherwise
+     */
     private boolean isValidJarFile(@NotNull Path jarFile) {
         try {
             return Files.exists(jarFile) &&
@@ -855,12 +886,20 @@ public class DependencyResolver {
         }
     }
 
-    // Helper classes and records
-
     /**
      * Context for POM processing including all resolved dependencies.
+     *
+     * @param pomInfo the POM information
+     * @param allDependencies the list of all resolved dependencies
      */
     private record PomContext(@NotNull PomReader.PomInfo pomInfo, @NotNull List<Dependency> allDependencies) {
+        /**
+         * Creates a new POM context.
+         *
+         * @param pomInfo the POM information
+         * @param allDependencies the list of all resolved dependencies
+         * @throws NullPointerException if any parameter is null
+         */
         public PomContext {
             requireNonNull(pomInfo, "POM info cannot be null");
             allDependencies = List.copyOf(requireNonNull(allDependencies, "Dependencies cannot be null"));
@@ -869,8 +908,18 @@ public class DependencyResolver {
 
     /**
      * Result of a JAR download operation.
+     *
+     * @param jarPath the path to the downloaded JAR file
+     * @param downloadedFrom the repository URL the JAR was downloaded from, or null if cached
      */
     private record DownloadResult(@NotNull Path jarPath, @Nullable String downloadedFrom) {
+        /**
+         * Creates a new download result.
+         *
+         * @param jarPath the path to the downloaded JAR file
+         * @param downloadedFrom the repository URL the JAR was downloaded from, or null if cached
+         * @throws NullPointerException if jarPath is null
+         */
         public DownloadResult {
             requireNonNull(jarPath, "JAR path cannot be null");
         }
@@ -878,29 +927,59 @@ public class DependencyResolver {
 
     /**
      * Result of dependency resolution.
+     *
+     * @param resolvedDependencies the list of successfully resolved dependencies
+     * @param errors the list of error messages encountered during resolution
      */
     public record ResolutionResult(List<ResolvedDependency> resolvedDependencies, List<String> errors) {
+        /**
+         * Creates a new resolution result.
+         *
+         * @param resolvedDependencies the list of successfully resolved dependencies
+         * @param errors the list of error messages encountered during resolution
+         * @throws NullPointerException if any parameter is null
+         */
         public ResolutionResult(@NotNull List<ResolvedDependency> resolvedDependencies, @NotNull List<String> errors) {
             this.resolvedDependencies = List.copyOf(resolvedDependencies);
             this.errors = List.copyOf(errors);
         }
 
+        /**
+         * Gets the resolved dependencies.
+         *
+         * @return an immutable list of resolved dependencies
+         */
         @Override
         @NotNull
         public List<ResolvedDependency> resolvedDependencies() {
             return resolvedDependencies;
         }
 
+        /**
+         * Gets the error messages.
+         *
+         * @return an immutable list of error messages
+         */
         @Override
         @NotNull
         public List<String> errors() {
             return errors;
         }
 
+        /**
+         * Checks if any errors occurred during resolution.
+         *
+         * @return true if there are error messages, false otherwise
+         */
         public boolean hasErrors() {
             return !errors.isEmpty();
         }
 
+        /**
+         * Gets the total number of resolved dependencies.
+         *
+         * @return the number of resolved dependencies
+         */
         public int getDependencyCount() {
             return resolvedDependencies.size();
         }
@@ -908,25 +987,50 @@ public class DependencyResolver {
 
     /**
      * A successfully resolved dependency with its JAR path.
+     *
+     * @param dependency the resolved dependency information
+     * @param jarPath the path to the JAR file
      */
     public record ResolvedDependency(Dependency dependency, Path jarPath) {
+        /**
+         * Creates a new resolved dependency.
+         *
+         * @param dependency the resolved dependency information
+         * @param jarPath the path to the JAR file
+         * @throws NullPointerException if any parameter is null
+         */
         public ResolvedDependency(@NotNull Dependency dependency, @NotNull Path jarPath) {
             this.dependency = requireNonNull(dependency, "Dependency cannot be null");
             this.jarPath = requireNonNull(jarPath, "JAR path cannot be null");
         }
 
+        /**
+         * Gets the dependency information.
+         *
+         * @return the dependency
+         */
         @Override
         @NotNull
         public Dependency dependency() {
             return dependency;
         }
 
+        /**
+         * Gets the path to the JAR file.
+         *
+         * @return the JAR file path
+         */
         @Override
         @NotNull
         public Path jarPath() {
             return jarPath;
         }
 
+        /**
+         * Returns a string representation of the resolved dependency.
+         *
+         * @return a string representation
+         */
         @Override
         public String toString() {
             return dependency.toShortString() + " -> " + jarPath;

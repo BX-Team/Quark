@@ -73,6 +73,14 @@ public class MetadataReader {
         }
     }
 
+    /**
+     * Parses a Maven metadata XML document.
+     *
+     * @param document the XML document to parse
+     * @param source the source description for error reporting (e.g., URL or file path)
+     * @return the parsed Maven metadata information
+     * @throws MetadataParsingException if parsing fails
+     */
     @NotNull
     private MavenMetadata parseMetadataDocument(@NotNull Document document, @NotNull String source) throws MetadataParsingException {
         XPath xpath = xPathFactory.newXPath();
@@ -92,6 +100,14 @@ public class MetadataReader {
         }
     }
 
+    /**
+     * Extracts all versions from the Maven metadata document.
+     *
+     * @param xpath the XPath instance for evaluating expressions
+     * @param document the XML document containing Maven metadata
+     * @return a list of version strings found in the metadata
+     * @throws XPathExpressionException if XPath evaluation fails
+     */
     @NotNull
     private List<String> extractVersions(@NotNull XPath xpath, @NotNull Document document) throws XPathExpressionException {
         List<String> versions = new ArrayList<>();
