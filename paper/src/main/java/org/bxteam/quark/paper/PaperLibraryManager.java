@@ -5,7 +5,6 @@ import org.bxteam.quark.classloader.IsolatedClassLoader;
 import org.bxteam.quark.classloader.IsolatedClassLoaderImpl;
 import org.bxteam.quark.classloader.URLClassLoaderHelper;
 import org.bxteam.quark.dependency.Dependency;
-import org.bxteam.quark.logger.LogLevel;
 import org.bxteam.quark.logger.LogAdapter;
 import org.bxteam.quark.logger.adapters.JavaLogAdapter;
 import org.bxteam.quark.relocation.Relocation;
@@ -187,8 +186,7 @@ public class PaperLibraryManager extends LibraryManager {
         requireNonNull(artifactId, "Artifact ID cannot be null");
         requireNonNull(version, "Version cannot be null");
 
-        Dependency dependency = Dependency.of(groupId, artifactId, version);
-        loadDependency(dependency);
+        loadDependency(Dependency.of(groupId, artifactId, version));
     }
 
     /**

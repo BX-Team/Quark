@@ -1,10 +1,10 @@
 package org.bxteam.quark.relocation;
 
+import org.bxteam.quark.LibraryManager;
 import org.bxteam.quark.classloader.IsolatedClassLoader;
 import org.bxteam.quark.classloader.IsolatedClassLoaderImpl;
 import org.bxteam.quark.dependency.Dependency;
-import org.bxteam.quark.dependency.DependencyException;
-import org.bxteam.quark.repository.Repository;
+import org.bxteam.quark.repository.LocalRepository;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
@@ -70,11 +70,10 @@ public class RelocationHandler implements AutoCloseable {
      * @param dependency the dependency being relocated
      * @param relocations the list of relocations to apply
      * @return the path to the relocated JAR (or original if no relocations)
-     * @throws NullPointerException if any parameter is null
-     * @throws DependencyException if relocation fails
+     * @throws RelocationException if relocation fails
      */
     @NotNull
-    public Path relocateDependency(@NotNull Repository localRepository,
+    public Path relocateDependency(@NotNull LocalRepository localRepository,
                                    @NotNull Path dependencyPath,
                                    @NotNull Dependency dependency,
                                    @NotNull List<Relocation> relocations) {
@@ -87,13 +86,26 @@ public class RelocationHandler implements AutoCloseable {
             return dependencyPath;
         }
 
-        Path relocatedJar = dependency.toMavenJar(localRepository, "relocated").toPath();
+        Path relocatedJar = getRelocatedJarPath(localRepository, dependency);
 
         if (Files.exists(relocatedJar) && !cacheResolver.shouldForceRelocate(dependency, relocations)) {
             return relocatedJar;
         }
 
         return relocate(dependency, dependencyPath, relocatedJar, relocations);
+    }
+
+    /**
+     * Gets the path for a relocated JAR file.
+     *
+     * @param localRepository the local repository where the JAR will be stored
+     * @param dependency the dependency being relocated
+     * @return the path to the relocated JAR
+     */
+    @NotNull
+    private Path getRelocatedJarPath(@NotNull LocalRepository localRepository, @NotNull Dependency dependency) {
+        Dependency relocatedDependency = dependency.withClassifier("relocated");
+        return relocatedDependency.getJarPath(localRepository.getPath());
     }
 
     /**
@@ -104,7 +116,7 @@ public class RelocationHandler implements AutoCloseable {
      * @param output the output JAR path
      * @param relocations the relocations to apply
      * @return the path to the relocated JAR
-     * @throws DependencyException if relocation fails
+     * @throws RelocationException if relocation fails
      */
     @NotNull
     private Path relocate(@NotNull Dependency dependency, @NotNull Path input, @NotNull Path output, @NotNull List<Relocation> relocations) {
@@ -128,12 +140,12 @@ public class RelocationHandler implements AutoCloseable {
             cacheResolver.markAsRelocated(dependency, relocations);
 
             if (!Files.exists(output)) {
-                throw new DependencyException("Relocation failed to create output file: " + output);
+                throw new RelocationException("Relocation failed to create output file: " + output);
             }
 
             return output;
         } catch (InstantiationException | IllegalAccessException | InvocationTargetException | IOException e) {
-            throw new DependencyException("Failed to relocate JAR for dependency: " + dependency, e);
+            throw new RelocationException("Failed to relocate JAR for dependency: " + dependency.toShortString(), e);
         }
     }
 
@@ -142,11 +154,10 @@ public class RelocationHandler implements AutoCloseable {
      *
      * @param libraryManager the library manager to load dependencies with
      * @return a new relocation handler
-     * @throws NullPointerException if libraryManager is null
-     * @throws DependencyException if the handler cannot be created
+     * @throws RelocationException if the handler cannot be created
      */
     @NotNull
-    public static RelocationHandler create(@NotNull org.bxteam.quark.LibraryManager libraryManager) {
+    public static RelocationHandler create(@NotNull LibraryManager libraryManager) {
         requireNonNull(libraryManager, "Library manager cannot be null");
 
         IsolatedClassLoader classLoader = new IsolatedClassLoaderImpl();
@@ -166,7 +177,7 @@ public class RelocationHandler implements AutoCloseable {
 
             return new RelocationHandler(classLoader, jarRelocatorConstructor, jarRelocatorRunMethod, cacheResolver);
         } catch (ClassNotFoundException | NoSuchMethodException e) {
-            throw new DependencyException("Failed to initialize relocation handler", e);
+            throw new RelocationException("Failed to initialize relocation handler", e);
         }
     }
 
@@ -192,5 +203,18 @@ public class RelocationHandler implements AutoCloseable {
         return "RelocationHandler{" +
                 "classLoader=" + classLoader.getClass().getSimpleName() +
                 '}';
+    }
+
+    /**
+     * Exception thrown when relocation operations fail.
+     */
+    public static class RelocationException extends RuntimeException {
+        public RelocationException(String message) {
+            super(message);
+        }
+
+        public RelocationException(String message, Throwable cause) {
+            super(message, cause);
+        }
     }
 }

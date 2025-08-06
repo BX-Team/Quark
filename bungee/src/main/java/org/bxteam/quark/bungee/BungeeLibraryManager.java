@@ -116,8 +116,7 @@ public class BungeeLibraryManager extends LibraryManager {
         requireNonNull(artifactId, "Artifact ID cannot be null");
         requireNonNull(version, "Version cannot be null");
 
-        Dependency dependency = Dependency.of(groupId, artifactId, version);
-        loadDependency(dependency);
+        loadDependency(Dependency.of(groupId, artifactId, version));
     }
 
     /**
