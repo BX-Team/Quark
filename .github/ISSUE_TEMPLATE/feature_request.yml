@@ -1,7 +1,7 @@
 name: 🚀 Feature Request
 description: Suggest a new feature or enhancement for Quark
 title: "[FEATURE] "
-labels: ["💡 feature request"]
+labels: ["🔧 enhancement"]
 body:
   - type: markdown
     attributes:
@@ -23,7 +23,7 @@ body:
         - label: This feature would benefit the general user base, not just my specific use case
           required: false
 
-  - type: dropdown
+  - type: textarea
     id: feature-type
     attributes:
       label: 🎯 Feature Type
