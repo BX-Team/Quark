@@ -1,0 +1,140 @@
+name: 🚀 Feature Request
+description: Suggest a new feature or enhancement for Quark
+title: "[FEATURE] "
+labels: ["💡 feature request"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        # 🚀 Feature Request
+        
+        Thank you for suggesting a new feature! We appreciate your input and ideas for improving Quark.
+        
+        ---
+
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: Prerequisites
+      description: Please confirm the following before submitting your feature request
+      options:
+        - label: I have searched for existing issues and this feature hasn't been requested yet
+          required: true
+        - label: This feature would benefit the general user base, not just my specific use case
+          required: false
+
+  - type: dropdown
+    id: feature-type
+    attributes:
+      label: 🎯 Feature Type
+      description: What type of feature are you requesting?
+    validations:
+      required: true
+
+  - type: textarea
+    id: feature-summary
+    attributes:
+      label: 📝 Feature Summary
+      description: A brief, clear summary of the feature you'd like to see
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem-statement
+    attributes:
+      label: 🤔 Problem Statement
+      description: What problem does this feature solve? What's the motivation?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-solution
+    attributes:
+      label: 💡 Proposed Solution
+      description: Describe your preferred solution for this feature
+    validations:
+      required: true
+
+  - type: textarea
+    id: use-cases
+    attributes:
+      label: 🎯 Use Cases
+      description: Describe specific use cases where this feature would be helpful
+      placeholder: |
+        This feature would be useful for:
+        
+        1. **IDE Integration**: Loading source JARs for better debugging experience
+        2. **Documentation Tools**: Accessing JavaDoc JARs for documentation generation
+        3. **Testing**: Loading test JARs for integration testing
+        4. **Development**: Loading snapshot versions with specific classifiers
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: ⚡ Priority Level
+      description: How important is this feature to you?
+      options:
+        - "🔥 Critical - Blocking my project"
+        - "🚨 High - Would significantly improve my workflow"
+        - "📋 Medium - Nice to have enhancement"
+        - "🎁 Low - Minor convenience improvement"
+      default: 2
+    validations:
+      required: true
+
+  - type: textarea
+    id: implementation-notes
+    attributes:
+      label: 🔧 Implementation Notes
+      description: Any thoughts on how this could be implemented?
+      placeholder: |
+        Implementation considerations:
+        
+        - Should maintain backward compatibility
+        - May need to update dependency resolution logic
+        - Could require changes to repository handling
+        - Should work with existing relocation system
+    validations:
+      required: false
+
+  - type: textarea
+    id: breaking-changes
+    attributes:
+      label: ⚠️ Breaking Changes
+      description: Would this feature require any breaking changes?
+      placeholder: |
+        - Changes to existing API methods: Yes/No
+        - New required dependencies: Yes/No
+        - Minimum Java version changes: Yes/No
+        - Configuration format changes: Yes/No
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: 📋 Additional Context
+      description: Any other relevant information
+      placeholder: |
+        Additional context that might be helpful:
+        
+        - Links to related issues or discussions
+        - Examples from other libraries
+        - Performance considerations
+        - Security implications
+        - Testing requirements
+    validations:
+      required: false
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        
+        **Thank you for your feature request!** 🎉
+        
+        We'll review your suggestion and discuss its feasibility. Popular features with clear use cases and good API designs are more likely to be implemented quickly.
+        
+        Feel free to contribute a Pull Request if you'd like to implement this feature yourself!
