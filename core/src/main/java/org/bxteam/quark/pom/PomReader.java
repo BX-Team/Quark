@@ -340,18 +340,12 @@ public class PomReader {
      * @return true if the dependency should be included, false otherwise
      */
     private boolean shouldIncludeDependency(@NotNull Node dependencyNode) {
-        String scope = getChildNodeText(dependencyNode, "scope");
+        String scope = Optional.ofNullable(getChildNodeText(dependencyNode, "scope"))
+                .filter(s -> !s.trim().isEmpty())
+                .orElse("compile");
         String optional = getChildNodeText(dependencyNode, "optional");
 
-        if (scope == null || scope.trim().isEmpty()) {
-            scope = "compile";
-        }
-
-        if (!"compile".equals(scope) && !"runtime".equals(scope)) {
-            return false;
-        }
-
-        return !"true".equals(optional);
+        return ("compile".equals(scope) || "runtime".equals(scope)) && !"true".equals(optional);
     }
 
     /**
