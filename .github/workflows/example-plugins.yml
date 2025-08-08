@@ -1,0 +1,112 @@
+name: Build Example plugins
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    if: "!contains(github.event.commits[0].message, '[ci-skip]')"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Make Gradlew executable
+        run: chmod +x ./gradlew
+
+      - name: Build Project
+        run: ./gradlew build
+
+      - name: Prepare Bukkit plugin artifact
+        if: always()
+        run: |
+          if [ -d "examples/bukkit/build/libs" ] && [ "$(ls -A examples/bukkit/build/libs/*.jar 2>/dev/null)" ]; then
+            mkdir -p artifacts/bukkit
+            cp examples/bukkit/build/libs/*.jar artifacts/bukkit/
+            echo "Bukkit plugin files prepared"
+          else
+            echo "No Bukkit test plugin JARs found"
+          fi
+
+      - name: Prepare BungeeCord plugin artifact
+        if: always()
+        run: |
+          if [ -d "examples/bungee/build/libs" ] && [ "$(ls -A examples/bungee/build/libs/*.jar 2>/dev/null)" ]; then
+            mkdir -p artifacts/bungee
+            cp examples/bungee/build/libs/*.jar artifacts/bungee/
+            echo "BungeeCord plugin files prepared"
+          else
+            echo "No BungeeCord plugin JARs found"
+          fi
+
+      - name: Prepare Paper plugin artifact
+        if: always()
+        run: |
+          if [ -d "examples/paper/build/libs" ] && [ "$(ls -A examples/paper/build/libs/*.jar 2>/dev/null)" ]; then
+            mkdir -p artifacts/paper
+            cp examples/paper/build/libs/*.jar artifacts/paper/
+            echo "Paper plugin files prepared"
+          else
+            echo "No Paper plugin JARs found"
+          fi
+
+      - name: Prepare Velocity plugin artifact
+        if: always()
+        run: |
+          if [ -d "examples/velocity/build/libs" ] && [ "$(ls -A examples/velocity/build/libs/*.jar 2>/dev/null)" ]; then
+            mkdir -p artifacts/velocity
+            cp examples/velocity/build/libs/*.jar artifacts/velocity/
+            echo "Velocity plugin files prepared"
+          else
+            echo "No Velocity plugin JARs found"
+          fi
+
+      - name: Upload Bukkit plugin
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: BukkitExamplePlugin
+          path: artifacts/bukkit/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Upload BungeeCord plugin
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: BungeeExamplePlugin
+          path: artifacts/bungee/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Upload Paper plugin
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: PaperExamplePlugin
+          path: artifacts/paper/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Upload Velocity plugin
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: VelocityExamplePlugin
+          path: artifacts/velocity/
+          if-no-files-found: warn
+          retention-days: 30

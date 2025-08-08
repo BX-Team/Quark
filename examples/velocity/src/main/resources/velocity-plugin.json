@@ -1,0 +1,8 @@
+{
+  "id": "velocityexampleplugin",
+  "name": "VelocityExamplePlugin",
+  "version": "1.0.0",
+  "description": "Example plugin showing work of Quark",
+  "authors": [ "BX Team" ],
+  "main": "org.bxteam.example.velocity.VelocityExamplePlugin"
+}

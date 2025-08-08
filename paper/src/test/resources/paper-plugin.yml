@@ -1,7 +1,0 @@
-name: QuarkPaperTest
-version: 1.0.0
-author: BX Team
-main: org.bxteam.quark.paper.test.PaperTestPlugin
-api-version: 1.21
-load: STARTUP
-has-open-classloader: true

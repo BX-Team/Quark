@@ -1,6 +1,0 @@
-name: QuarkBukkitTest
-version: 1.0.0
-author: BX Team
-main: org.bxteam.quark.bukkit.test.BukkitTestPlugin
-api-version: 1.21
-load: STARTUP

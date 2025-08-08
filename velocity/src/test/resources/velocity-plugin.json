@@ -1,8 +1,0 @@
-{
-  "id": "velocitytestplugin",
-  "name": "VelocityTestPlugin",
-  "version": "1.0.0",
-  "description": "A test plugin for Quark Velocity integration",
-  "authors": [ "BX Team" ],
-  "main": "org.bxteam.quark.velocity.test.VelocityTestPlugin"
-}

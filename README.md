@@ -54,7 +54,13 @@ implementation("org.bxteam.quark:{artifact}:1.0.0")
 > [!IMPORTANT]  
 > Replace `{artifact}` with [platform artifact](https://bxteam.org/docs/quark/supported-platforms)
 
-## Documentation and Support
+## 🌍 Examples
+- [Bukkit Example](https://github.com/BX-Team/Quark/tree/master/examples/bukkit)
+- [Bungee Example](https://github.com/BX-Team/Quark/tree/master/examples/bungee)
+- [Paper Example](https://github.com/BX-Team/Quark/tree/master/examples/paper)
+- [Velocity Example](https://github.com/BX-Team/Quark/tree/master/examples/velocity)
+
+## 📚 Documentation and Support
 
 For complete documentation, advanced usage examples, and configuration options, visit our wiki:
 
@@ -64,6 +70,6 @@ For support, join our Discord server:
 
 [![discord-plural](https://cdn.jsdelivr.net/npm/@intergrav/devins-badges@3/assets/cozy/social/discord-plural_vector.svg)](https://discord.gg/qNyybSSPm5)
 
-## License ![Static Badge](https://img.shields.io/badge/license-GPL_3.0-lightgreen)
+## 🧾 License ![Static Badge](https://img.shields.io/badge/license-GPL_3.0-lightgreen)
 
 Quark is licensed under the GNU General Public License v3.0. You can find the license [here](LICENSE).
