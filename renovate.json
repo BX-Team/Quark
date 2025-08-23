@@ -1,0 +1,24 @@
+{
+  "extends": ["config:base", "group:allNonMajor", ":semanticCommits"],
+  "labels": [
+    "\uD83D\uDD04 dependencies"
+  ],
+  "schedule": [
+    "before 4am on Monday"
+  ],
+  "packageRules": [
+    {
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "pin",
+        "digest"
+      ],
+      "automerge": true
+    },
+    {
+      "matchPackageNames": ["**"],
+      "allowedVersions": "!/\\-SNAPSHOT$/"
+    }
+  ]
+}
