@@ -2,10 +2,11 @@
   "extends": [
     "config:recommended",
     "group:allNonMajor",
-    ":semanticCommits",
     ":automergeMinor",
     ":automergePatch"
   ],
+  "semanticCommitType": "build",
+  "commitMessagePrefix": "chore(deps): ",
   "labels": [
     "🔄 dependencies"
   ],
