@@ -1,5 +1,5 @@
 {
-  "extends": ["config:base", "group:allNonMajor", ":semanticCommits"],
+  "extends": ["config:recommended", "group:allNonMajor", ":semanticCommits", ":automergeMinor", ":automergePatch"],
   "labels": [
     "\uD83D\uDD04 dependencies"
   ],
@@ -8,16 +8,13 @@
   ],
   "packageRules": [
     {
-      "matchUpdateTypes": [
-        "minor",
-        "patch",
-        "pin",
-        "digest"
-      ],
-      "automerge": true
-    },
-    {
       "matchPackageNames": ["**"],
+      "excludePackageNames": [
+        "org.spigotmc:spigot-api",
+        "net.md-5:bungeecord-api",
+        "io.papermc.paper:paper-api",
+        "com.velocitypowered:velocity-api"
+      ],
       "allowedVersions": "!/\\-SNAPSHOT$/"
     }
   ]
