@@ -1,3 +1,7 @@
+pluginManagement {
+    includeBuild("/gradle-plugin")
+}
+
 rootProject.name = "Quark"
 
 setOf(
