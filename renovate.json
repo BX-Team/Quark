@@ -1,19 +1,25 @@
 {
-  "extends": ["config:recommended", "group:allNonMajor", ":semanticCommits", ":automergeMinor", ":automergePatch"],
+  "extends": [
+    "config:recommended",
+    "group:allNonMajor",
+    ":semanticCommits",
+    ":automergeMinor",
+    ":automergePatch"
+  ],
   "labels": [
-    "\uD83D\uDD04 dependencies"
+    "🔄 dependencies"
   ],
   "schedule": [
     "before 4am on Monday"
   ],
   "packageRules": [
     {
-      "matchPackageNames": ["**"],
-      "excludePackageNames": [
-        "org.spigotmc:spigot-api",
-        "net.md-5:bungeecord-api",
-        "io.papermc.paper:paper-api",
-        "com.velocitypowered:velocity-api"
+      "matchPackageNames": [
+        "**",
+        "!org.spigotmc:spigot-api",
+        "!net.md-5:bungeecord-api",
+        "!io.papermc.paper:paper-api",
+        "!com.velocitypowered:velocity-api"
       ],
       "allowedVersions": "!/\\-SNAPSHOT$/"
     }
