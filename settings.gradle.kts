@@ -15,8 +15,16 @@ fun subProject(name: String) {
     project(":quark-$name").projectDir = file(name)
 }
 
-// Examples
-include(":examples:bukkit")
-include(":examples:bungee")
-include(":examples:paper")
-include(":examples:velocity")
+setOf(
+    "bukkit",
+    "bungee",
+    "paper",
+    "velocity"
+).forEach {
+    exampleProject(it)
+}
+
+fun exampleProject(name: String) {
+    include(":examples:$name")
+    project(":examples:$name").projectDir = file("examples/$name")
+}
