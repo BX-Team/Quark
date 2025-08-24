@@ -22,6 +22,7 @@ fun subProject(name: String) {
 setOf(
     "bukkit",
     "bungee",
+    "gradle",
     "paper",
     "velocity"
 ).forEach {
