@@ -1,5 +1,5 @@
 pluginManagement {
-    includeBuild("/gradle-plugin")
+    includeBuild("gradle-plugin")
 }
 
 rootProject.name = "Quark"
