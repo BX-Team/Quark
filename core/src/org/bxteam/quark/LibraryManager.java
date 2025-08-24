@@ -457,16 +457,12 @@ public abstract class LibraryManager implements AutoCloseable {
         Instant startTime = Instant.now();
 
         try {
-            logger.info("Resolving " + dependencies.size() + " dependencies for isolated class loader...");
-
             DependencyResolver.ResolutionResult result = dependencyResolver.resolveDependencies(dependencies);
 
             if (result.hasErrors()) {
                 logger.warn("Dependency resolution completed with " + result.errors().size() + " errors:");
                 result.errors().forEach(error -> logger.warn("  - " + error));
             }
-
-            logger.info("Resolved " + result.getDependencyCount() + " total dependencies");
 
             List<DependencyLoadEntry> loadEntries = applyRelocations(result.resolvedDependencies(), relocations);
 
@@ -628,11 +624,12 @@ public abstract class LibraryManager implements AutoCloseable {
         try {
             metadataLoader = new GradleMetadataLoader(resourceProvider);
         } catch (GradleMetadataLoader.GradleMetadataException e) {
-            logger.warn("No Gradle metadata found or failed to load: " + e.getMessage());
+            logger.debug("No Gradle metadata found: " + e.getMessage());
             return;
         }
 
         if (!metadataLoader.hasDependencies()) {
+            logger.debug("No dependencies found in Gradle metadata");
             return;
         }
 
@@ -648,8 +645,8 @@ public abstract class LibraryManager implements AutoCloseable {
             ? metadataLoader.getRelocations()
             : Collections.emptyList();
 
-        logger.info("Loading " + dependencies.size() + " dependencies from Gradle metadata" +
-                (relocations.isEmpty() ? "" : " with " + relocations.size() + " relocations"));
+        String relocationInfo = relocations.isEmpty() ? "" : " with " + relocations.size() + " relocations";
+        logger.info("Loading " + dependencies.size() + " dependencies from Gradle metadata" + relocationInfo);
 
         loadDependencies(dependencies, relocations);
     }
@@ -675,11 +672,12 @@ public abstract class LibraryManager implements AutoCloseable {
         try {
             metadataLoader = new GradleMetadataLoader(resourceProvider);
         } catch (GradleMetadataLoader.GradleMetadataException e) {
-            logger.warn("No Gradle metadata found or failed to load: " + e.getMessage());
+            logger.debug("No Gradle metadata found: " + e.getMessage());
             return;
         }
 
         if (!metadataLoader.hasDependencies()) {
+            logger.debug("No dependencies found in Gradle metadata");
             return;
         }
 
@@ -695,8 +693,8 @@ public abstract class LibraryManager implements AutoCloseable {
             ? metadataLoader.getRelocations()
             : Collections.emptyList();
 
-        logger.info("Loading " + dependencies.size() + " dependencies from Gradle metadata into isolated class loader" +
-                (relocations.isEmpty() ? "" : " with " + relocations.size() + " relocations"));
+        String relocationInfo = relocations.isEmpty() ? "" : " with " + relocations.size() + " relocations";
+        logger.info("Loading " + dependencies.size() + " dependencies from Gradle metadata into isolated class loader" + relocationInfo);
 
         loadDependencies(classLoader, dependencies, relocations);
     }
