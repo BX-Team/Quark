@@ -1,3 +1,7 @@
+pluginManagement {
+    includeBuild("gradle-plugin")
+}
+
 rootProject.name = "Quark"
 
 setOf(
@@ -18,6 +22,7 @@ fun subProject(name: String) {
 setOf(
     "bukkit",
     "bungee",
+    "gradle",
     "paper",
     "velocity"
 ).forEach {
