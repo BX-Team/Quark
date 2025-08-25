@@ -11,6 +11,6 @@ repositories {
 dependencies {
     api(project(":quark-core"))
 
-    compileOnly("net.md-5:bungeecord-api:1.19-R0.1-SNAPSHOT")
-    testCompileOnly("net.md-5:bungeecord-api:1.19-R0.1-SNAPSHOT")
+    compileOnly("net.md-5:bungeecord-api:1.21-R0.3")
+    testCompileOnly("net.md-5:bungeecord-api:1.21-R0.3")
 }
