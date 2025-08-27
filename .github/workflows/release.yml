@@ -17,7 +17,7 @@ jobs:
       version: ${{ inputs.version }}
     secrets: inherit
 
-  publish:
+  build:
     needs: set-release-version
     runs-on: ubuntu-latest
     permissions:
@@ -123,15 +123,18 @@ jobs:
           name: Quark ${{ inputs.version }}
           preserve_order: true
 
-      - name: Publish to BX Team Maven Repository
-        continue-on-error: true
-        run: ./gradlew publish
-        env:
-          REPO_USERNAME: ${{ secrets.REPO_USERNAME }}
-          REPO_PASSWORD: ${{ secrets.REPO_SECRET }}
+  deploy-maven:
+    needs: build
+    uses: BX-Team/Quark/.github/workflows/deploy-maven.yml@master
+    secrets: inherit
+
+  deploy-gradle-plugin:
+    needs: build
+    uses: BX-Team/Quark/.github/workflows/deploy-gradle-plugin.yml@master
+    secrets: inherit
 
   set-after-version:
-    needs: publish
+    needs: [deploy-maven, deploy-gradle-plugin]
     uses: BX-Team/Quark/.github/workflows/set-version.yml@master
     with:
       version: ${{ inputs.after-version }}
