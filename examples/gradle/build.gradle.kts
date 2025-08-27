@@ -15,7 +15,7 @@ repositories {
 
 dependencies {
     compileOnly("org.spigotmc:spigot-api:1.19.4-R0.1-SNAPSHOT")
-    quark("com.zaxxer:HikariCP:7.0.2") // example of a dependency that will be downloaded by quark
+    quark("com.google.code.gson:gson:2.10.1") // example of a dependency that will be downloaded by quark
 
     // implementation("org.bxteam.quark:bukkit:1.0.0") // <-- uncomment in your project
     implementation(project(":quark-bukkit")) // don't use this line in your build file
