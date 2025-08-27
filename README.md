@@ -19,47 +19,17 @@ A lightweight, runtime dependency management system for plugins running on Minec
 - **🔄 Transitive Dependency Resolution** - Automatically resolves and loads all required dependencies
 - **📦 Package Relocation** - Relocate packages to avoid conflicts with other plugins or server dependencies
 - **🔒 Isolated Class Loading** - Load dependencies into isolated class loaders to prevent conflicts
-- **⚡ Dependency Optimization** - Built-in filtering and exclusion options to minimize downloads
-- **🎯 Platform Specific** - Dedicated implementations for Paper, Bukkit, BungeeCord, and Velocity
+- **🐘 Gradle Plugin** - Seamless integration with Gradle and ShadowJar
+- **🎯 Platform Specific** - Dedicated implementations for **Paper**, **Bukkit**, **BungeeCord**, and **Velocity**
 
-## 📦 Supported Platforms
+## 📥 Getting Started
 
-- Bukkit/Spigot
-- Paper
-- BungeeCord
-- Velocity
-
-## 🧪 Get Started
-
-#### ➕ Add our Repository
-```kts
-maven("https://repo.bxteam.org/releases")
-```
-```xml
-<repository>
-    <id>bx-team-releases</id>
-    <url>https://repo.bxteam.org/releases</url>
-</repository>
-```
-
-#### ➕ Add Quark to dependencies
-```kts
-implementation("org.bxteam.quark:{artifact}:1.0.0")
-```
-```xml
-<dependency>
-    <groupId>org.bxteam.quark</groupId>
-    <artifactId>{artifact}</artifactId>
-    <version>1.0.0</version>
-</dependency>
-```
-
-> [!IMPORTANT]  
-> Replace `{artifact}` with [platform artifact](https://bxteam.org/docs/quark/supported-platforms)
+You can find installation instructions and usage guides in the [official documentation](https://bxteam.org/docs/quark/getting-started/dependencies).
 
 ## 📦 Examples
 - [Bukkit Example](https://github.com/BX-Team/Quark/tree/master/examples/bukkit)
 - [Bungee Example](https://github.com/BX-Team/Quark/tree/master/examples/bungee)
+- [Gradle Example](https://github.com/BX-Team/Quark/tree/master/examples/gradle)
 - [Paper Example](https://github.com/BX-Team/Quark/tree/master/examples/paper)
 - [Velocity Example](https://github.com/BX-Team/Quark/tree/master/examples/velocity)
 

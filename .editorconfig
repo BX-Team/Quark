@@ -1,4 +1,4 @@
-[*]
+[*.java]
 charset = utf-8
 end_of_line = lf
 indent_size = 4
@@ -8,8 +8,6 @@ max_line_length = off
 tab_width = 4
 trim_trailing_whitespace = true
 ij_continuation_indent_size = 4
-
-[*.java]
 ij_java_keep_simple_blocks_in_one_line = false
 ij_java_keep_simple_classes_in_one_line = true
 ij_java_keep_simple_lambdas_in_one_line = true
