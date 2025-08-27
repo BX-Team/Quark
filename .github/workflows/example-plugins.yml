@@ -53,6 +53,17 @@ jobs:
             echo "No BungeeCord plugin JARs found"
           fi
 
+      - name: Prepare Gradle plugin artifact
+        if: always()
+        run: |
+          if [ -d "examples/gradle/build/libs" ] && [ "$(ls -A examples/gradle/build/libs/*.jar 2>/dev/null)" ]; then
+            mkdir -p artifacts/gradle
+            cp examples/gradle/build/libs/*.jar artifacts/gradle/
+            echo "Gradle plugin files prepared"
+          else
+            echo "No Gradle plugin JARs found"
+          fi
+
       - name: Prepare Paper plugin artifact
         if: always()
         run: |
@@ -90,6 +101,15 @@ jobs:
         with:
           name: BungeeExamplePlugin
           path: artifacts/bungee/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Upload Gradle plugin
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: GradleExamplePlugin
+          path: artifacts/gradle/
           if-no-files-found: warn
           retention-days: 30
 
