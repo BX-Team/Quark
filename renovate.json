@@ -16,12 +16,15 @@
   "packageRules": [
     {
       "matchPackageNames": [
-        "**",
-        "!org.spigotmc:spigot-api",
-        "!net.md-5:bungeecord-api",
-        "!io.papermc.paper:paper-api",
-        "!com.velocitypowered:velocity-api"
+        "net.md-5:bungeecord-api",
+        "org.spigotmc:spigot-api",
+        "io.papermc.paper:paper-api",
+        "com.velocitypowered:velocity-api"
       ],
+      "enabled": false
+    },
+    {
+      "matchPackageNames": ["**"],
       "allowedVersions": "!/\\-SNAPSHOT$/"
     }
   ]
