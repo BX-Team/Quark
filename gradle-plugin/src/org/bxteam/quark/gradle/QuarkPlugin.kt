@@ -9,6 +9,12 @@ import org.gradle.api.tasks.bundling.Jar
 import org.gradle.kotlin.dsl.withType
 import java.io.File
 
+/**
+ * Version of Quark to use for the platform dependency.
+ * Automatically updated during release process.
+ */
+private const val QUARK_VERSION: String = "1.0.0"
+
 class QuarkPlugin : Plugin<Project> {
     override fun apply(project: Project) {
         if (!project.plugins.hasPlugin("com.github.johnrengelman.shadow")) {
@@ -124,6 +130,6 @@ val Project.quark: QuarkExtension
 private fun Project.addQuarkDependencies() {
     val extension = project.quark
     extension.platform?.let { platform ->
-        dependencies.add("api", "org.bxteam.quark:${platform}:1.0.0")
+        dependencies.add("api", "org.bxteam.quark:${platform}:${QUARK_VERSION}")
     }
 }
