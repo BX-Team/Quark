@@ -66,6 +66,11 @@ open class QuarkExtension {
     var libsFolder: String = "libs"
 
     /**
+     * The platform type to use (e.g., "paper", "bukkit", "velocity", etc.)
+     */
+    var platform: String? = null
+
+    /**
      * The repositories URLs
      */
     private var _repositories = mutableListOf(GOOGLE_MAVEN_CENTRAL_MIRROR)
@@ -121,8 +126,9 @@ open class QuarkExtension {
      * Generates the content of the properties file of this extension
      */
     internal fun toPropertiesFile(): String {
-        return """
-            libs-folder=${libsFolder}
-        """.trimIndent()
+        return buildString {
+            appendLine("libs-folder=${libsFolder}")
+            platform?.let { appendLine("platform=${it}") }
+        }.trimEnd()
     }
 }

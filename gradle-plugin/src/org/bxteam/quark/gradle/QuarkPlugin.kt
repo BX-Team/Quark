@@ -17,6 +17,10 @@ class QuarkPlugin : Plugin<Project> {
 
         project.extensions.create("quark", QuarkExtension::class.java)
 
+        project.repositories.maven {
+            url = project.uri("https://repo.bxteam.org/releases")
+        }
+
         val quark = project.configurations.create("quark") {
             isCanBeResolved = true
             isCanBeConsumed = false
@@ -25,6 +29,7 @@ class QuarkPlugin : Plugin<Project> {
 
         project.afterEvaluate {
             configurations.getByName("compileOnly").extendsFrom(quark)
+            project.addQuarkDependencies()
         }
 
         val outputDir = project.layout.buildDirectory.asFile.get().resolve("quark")
@@ -112,3 +117,13 @@ private fun Project.createRepositoriesFile(outputDir: File, extension: QuarkExte
  */
 val Project.quark: QuarkExtension
     get() = extensions.getByType(QuarkExtension::class.java)
+
+/**
+ * Adds the Quark platform dependency based on the configuration
+ */
+private fun Project.addQuarkDependencies() {
+    val extension = project.quark
+    extension.platform?.let { platform ->
+        dependencies.add("api", "org.bxteam.quark:${platform}:1.0.0")
+    }
+}
