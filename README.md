@@ -24,7 +24,7 @@ A lightweight, runtime dependency management system for plugins running on Minec
 
 ## 📥 Getting Started
 
-You can find installation instructions and usage guides in the [official documentation](https://bxteam.org/docs/quark/getting-started/dependencies).
+You can find information on how to install and use Quark on our [official website](https://bxteam.org/docs/quark/usage/installing).
 
 ## 📦 Examples
 - [Bukkit Example](https://github.com/BX-Team/Quark/tree/master/examples/bukkit)
