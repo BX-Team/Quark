@@ -35,7 +35,7 @@ gradlePlugin {
             implementationClass = "org.bxteam.quark.gradle.QuarkPlugin"
             website = "https://bxteam.org/docs/quark"
             vcsUrl = "https://github.com/BX-Team/Quark"
-            tags = listOf("maven", "downloader", "runtime dependency", "minecraft", "plugin", "bukkit", "spigot", "paper", "bungee", "velocity")
+            tags = listOf("maven", "downloader", "runtime dependency", "minecraft", "bukkit", "spigot", "paper", "bungee", "velocity")
         }
     }
 }
