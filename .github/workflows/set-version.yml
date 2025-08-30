@@ -32,6 +32,10 @@ jobs:
         run: |
           sed -i 's/private const val QUARK_VERSION: String = ".*"/private const val QUARK_VERSION: String = "${{ inputs.version }}"/g' gradle-plugin/src/org/bxteam/quark/gradle/QuarkPlugin.kt
 
+      - name: Update Gradle Plugin Version
+        run: |
+          sed -i 's/^version = ".*"/version = "${{ inputs.version }}"/g' gradle-plugin/build.gradle.kts
+
       - name: Commit Changes
         uses: stefanzweifel/git-auto-commit-action@v6
         with:

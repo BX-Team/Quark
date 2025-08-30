@@ -3,6 +3,9 @@ plugins {
     id("com.gradle.plugin-publish") version "1.3.1"
 }
 
+group = "org.bxteam"
+version = "1.0.0"
+
 repositories {
     mavenCentral()
     gradlePluginPortal()
