@@ -1,7 +1,7 @@
 import org.bxteam.runserver.ServerType
 
 plugins {
-    id("java")
+    id("java-library")
     id("com.gradleup.shadow") version "8.3.9"
     id("de.eldoria.plugin-yml.bukkit") version "0.7.1"
     id("org.bxteam.runserver") version "1.2.2"
@@ -16,12 +16,11 @@ repositories {
 dependencies {
     compileOnly("org.spigotmc:spigot-api:1.19.4-R0.1-SNAPSHOT")
     quark("com.google.code.gson:gson:2.10.1") // example of a dependency that will be downloaded by quark
-
-    // implementation("org.bxteam.quark:bukkit:1.0.0") // <-- uncomment in your project
-    implementation(project(":quark-bukkit")) // don't use this line in your build file
 }
 
 quark {
+    platform = "bukkit" // Specify the platform that will be used in your project (bukkit, paper, velocity or bungee)
+
     repositories {
         includeProjectRepositories()
     }
