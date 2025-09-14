@@ -3,7 +3,6 @@ package org.bxteam.quark.velocity;
 import com.velocitypowered.api.plugin.PluginManager;
 import org.bxteam.quark.LibraryManager;
 import org.bxteam.quark.classloader.IsolatedClassLoader;
-import org.bxteam.quark.classloader.IsolatedClassLoaderImpl;
 import org.bxteam.quark.dependency.Dependency;
 import org.bxteam.quark.logger.LogAdapter;
 import org.bxteam.quark.relocation.Relocation;
@@ -98,12 +97,6 @@ public class VelocityLibraryManager<T> extends LibraryManager {
         } catch (Exception e) {
             throw new LibraryLoadException("Failed to add JAR to Velocity plugin classpath: " + jarPath, e);
         }
-    }
-
-    @Override
-    @NotNull
-    protected IsolatedClassLoader createIsolatedClassLoader() {
-        return new IsolatedClassLoaderImpl();
     }
 
     @Override

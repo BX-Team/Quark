@@ -33,7 +33,7 @@ import static java.util.Objects.requireNonNull;
  * and multiple repository configurations. It serves as the foundation for platform-specific
  * implementations (Bukkit, Velocity, etc.).</p>
  */
-public abstract class LibraryManager implements AutoCloseable {
+public abstract class LibraryManager {
     private static final String DEFAULT_LIBS_DIRECTORY = "libs";
 
     protected final Logger logger;
@@ -54,7 +54,7 @@ public abstract class LibraryManager implements AutoCloseable {
 
     private volatile RelocationHandler relocationHandler;
 
-    protected final IsolatedClassLoader globalIsolatedClassLoader;
+    protected final IsolatedClassLoader globalIsolatedClassLoader = new IsolatedClassLoader();
     protected final Map<String, IsolatedClassLoader> isolatedClassLoaders = new ConcurrentHashMap<>();
 
     protected final Map<Dependency, Path> loadedDependencies = new ConcurrentHashMap<>();
@@ -89,8 +89,6 @@ public abstract class LibraryManager implements AutoCloseable {
 
         updateDependencyResolver();
 
-        this.globalIsolatedClassLoader = createIsolatedClassLoader();
-
         logger.debug("Initialized LibraryManager with data directory: " + dataDirectory);
     }
 
@@ -121,17 +119,6 @@ public abstract class LibraryManager implements AutoCloseable {
      * @param jarPath the path to the JAR file to add to the classpath
      */
     protected abstract void addToClasspath(@NotNull Path jarPath);
-
-    /**
-     * Creates a new isolated class loader instance.
-     *
-     * <p>This method must be implemented by platform-specific subclasses
-     * to create class loaders appropriate for that platform.</p>
-     *
-     * @return a new isolated class loader instance
-     */
-    @NotNull
-    protected abstract IsolatedClassLoader createIsolatedClassLoader();
 
     /**
      * Gets a resource as an input stream from the application.
@@ -577,7 +564,7 @@ public abstract class LibraryManager implements AutoCloseable {
     public IsolatedClassLoader createNamedIsolatedClassLoader(@NotNull String loaderId) {
         requireNonNull(loaderId, "Loader ID cannot be null");
 
-        IsolatedClassLoader classLoader = createIsolatedClassLoader();
+        IsolatedClassLoader classLoader = new IsolatedClassLoader();
         isolatedClassLoaders.put(loaderId, classLoader);
 
         logger.debug("Created isolated class loader: " + loaderId);
@@ -856,29 +843,6 @@ public abstract class LibraryManager implements AutoCloseable {
                 loadedDependencies.size(),
                 isolatedClassLoaders.size()
         );
-    }
-
-    /**
-     * Closes the LibraryManager and releases all resources.
-     * This includes closing all class loaders and the relocation handler.
-     */
-    @Override
-    public void close() {
-        logger.debug("Shutting down LibraryManager...");
-
-        try {
-            if (relocationHandler != null) {
-                relocationHandler.close();
-            }
-
-            globalIsolatedClassLoader.close();
-            isolatedClassLoaders.values().forEach(IsolatedClassLoader::close);
-            isolatedClassLoaders.clear();
-        } catch (Exception e) {
-            logger.error("Error during LibraryManager shutdown", e);
-        }
-
-        logger.debug("LibraryManager shutdown complete");
     }
 
     /**
