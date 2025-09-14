@@ -2,93 +2,108 @@ package org.bxteam.quark.classloader;
 
 import org.jetbrains.annotations.NotNull;
 
-import java.io.Closeable;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.nio.file.Path;
 
+import static java.util.Objects.requireNonNull;
+
 /**
- * Interface for isolated class loaders that can dynamically load JAR files.
+ * Isolated class loader that extends URLClassLoader for loading dependencies
+ * in an isolated environment.
  *
- * <p>Isolated class loaders provide a clean environment for loading dependencies
- * without polluting the main application classpath. This is essential for
- * avoiding conflicts between different versions of the same library.</p>
- *
- * <p>Implementations must provide dynamic JAR addition to classpath, class loading
- * from added JARs, proper resource cleanup, and isolation from parent classloaders
- * where appropriate.</p>
+ * <p>This class loader uses the system class loader's parent as its parent
+ * to provide isolation from application classes while maintaining access
+ * to core Java classes.</p>
  */
-public interface IsolatedClassLoader extends Closeable {
-    /**
-     * Adds a JAR file or directory to this class loader's classpath.
-     *
-     * @param path the path to the JAR file or directory to add
-     * @throws NullPointerException if path is null
-     * @throws ClassLoaderException if the path cannot be added
-     */
-    void addPath(@NotNull Path path);
+public class IsolatedClassLoader extends URLClassLoader {
+    static {
+        ClassLoader.registerAsParallelCapable();
+    }
 
     /**
-     * Loads a class by name from this class loader.
+     * Creates a new isolated class loader for the given URLs.
      *
-     * @param className the fully qualified name of the class to load
-     * @return the loaded class
-     * @throws ClassNotFoundException if the class cannot be found
-     * @throws NullPointerException if className is null
+     * @param urls the URLs to add to the classpath
      */
-    @NotNull
-    Class<?> loadClass(@NotNull String className) throws ClassNotFoundException;
+    public IsolatedClassLoader(@NotNull URL... urls) {
+        super(requireNonNull(urls, "urls"), ClassLoader.getSystemClassLoader().getParent());
+    }
 
     /**
-     * Closes this class loader and releases any associated resources.
+     * Adds a URL to the classpath.
      *
-     * <p>After calling this method, the class loader should not be used
-     * for loading classes or adding paths.</p>
-     *
-     * @throws ClassLoaderException if cleanup fails
+     * @param url the URL to add
      */
     @Override
-    void close();
-
-    /**
-     * Checks if this class loader has been closed.
-     *
-     * @return true if the class loader is closed, false otherwise
-     */
-    default boolean isClosed() {
-        return false;
+    public void addURL(@NotNull URL url) {
+        super.addURL(requireNonNull(url, "url"));
     }
 
     /**
-     * Gets the number of paths added to this class loader.
+     * Adds a path to the classpath.
      *
-     * @return the number of paths, or -1 if not supported by the implementation
+     * @param path the path to add
      */
-    default int getPathCount() {
-        return -1;
-    }
-
-    /**
-     * Exception thrown when class loader operations fail.
-     *
-     * @since 1.0
-     */
-    class ClassLoaderException extends RuntimeException {
-        /**
-         * Constructs a new ClassLoaderException with the specified detail message.
-         *
-         * @param message the detail message
-         */
-        public ClassLoaderException(String message) {
-            super(message);
+    public void addPath(@NotNull Path path) {
+        try {
+            addURL(requireNonNull(path, "path").toUri().toURL());
+        } catch (MalformedURLException e) {
+            throw new IllegalArgumentException(e);
         }
+    }
 
-        /**
-         * Constructs a new ClassLoaderException with the specified detail message and cause.
-         *
-         * @param message the detail message
-         * @param cause the cause of this exception
-         */
-        public ClassLoaderException(String message, Throwable cause) {
-            super(message, cause);
+    /**
+     * Defines and loads a class.
+     *
+     * @param name The expected binary name of the class
+     * @param classBytes An {@link InputStream} which provides the class bytes. It will be automatically closed by this
+     *                   method after being read.
+     * @return The defined class
+     * @throws IOException If an exception occurs while reading the provided {@link InputStream}
+     * @throws ClassFormatError If the bytes provided by the {@link InputStream} doesn't contain valid class
+     * @see ClassLoader#defineClass(String, byte[], int, int)
+     */
+    public Class<?> defineClass(@NotNull String name, @NotNull InputStream classBytes) throws IOException, ClassFormatError {
+        byte[] bytes = readAllBytes(classBytes);
+        return super.defineClass(name, bytes, 0, bytes.length);
+    }
+
+    /**
+     * Reads all bytes, and safely closes {@link InputStream}. Always has buffer length 4 KB.
+     *
+     * @return The all bytes of {@link InputStream}
+     * @param inputStream {@link InputStream} that would be read
+     * @throws IOException If {@link InputStream} has been closed, or bytes cannot be read, or other I/O error occurs.
+     * @see InputStream#read(byte[], int, int)
+     */
+    private static byte[] readAllBytes(@NotNull InputStream inputStream) throws IOException {
+        final int bufLen = 4 * 0x400;
+        byte[] buf = new byte[bufLen];
+        int readLen;
+        IOException exception = null;
+
+        try {
+            try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+                while ((readLen = inputStream.read(buf, 0, bufLen)) != -1)
+                    outputStream.write(buf, 0, readLen);
+
+                return outputStream.toByteArray();
+            }
+        } catch (IOException e) {
+            exception = e;
+            throw e;
+        } finally {
+            if (exception == null) inputStream.close();
+            else try {
+                inputStream.close();
+            } catch (IOException e) {
+                exception.addSuppressed(e);
+            }
         }
     }
 }

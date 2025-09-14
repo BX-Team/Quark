@@ -2,7 +2,6 @@ package org.bxteam.quark.bukkit;
 
 import org.bxteam.quark.LibraryManager;
 import org.bxteam.quark.classloader.IsolatedClassLoader;
-import org.bxteam.quark.classloader.IsolatedClassLoaderImpl;
 import org.bxteam.quark.classloader.URLClassLoaderHelper;
 import org.bxteam.quark.dependency.Dependency;
 import org.bxteam.quark.logger.LogAdapter;
@@ -89,12 +88,6 @@ public class BukkitLibraryManager extends LibraryManager {
         } catch (Exception e) {
             throw new LibraryLoadException("Failed to add JAR to plugin classpath: " + jarPath, e);
         }
-    }
-
-    @Override
-    @NotNull
-    protected IsolatedClassLoader createIsolatedClassLoader() {
-        return new IsolatedClassLoaderImpl();
     }
 
     @Override
