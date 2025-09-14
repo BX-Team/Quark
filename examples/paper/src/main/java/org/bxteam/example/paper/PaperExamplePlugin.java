@@ -13,11 +13,4 @@ public class PaperExamplePlugin extends JavaPlugin {
 
         libraryManager.loadDependency("com.google.code.gson", "gson", "2.10.1");
     }
-
-    @Override
-    public void onDisable() {
-        if (libraryManager != null) {
-            libraryManager.close();
-        }
-    }
 }

@@ -2,7 +2,6 @@ package org.bxteam.quark.relocation;
 
 import org.bxteam.quark.LibraryManager;
 import org.bxteam.quark.classloader.IsolatedClassLoader;
-import org.bxteam.quark.classloader.IsolatedClassLoaderImpl;
 import org.bxteam.quark.dependency.Dependency;
 import org.bxteam.quark.repository.LocalRepository;
 import org.jetbrains.annotations.NotNull;
@@ -29,7 +28,7 @@ import static java.util.Objects.requireNonNull;
  * an isolated class loader to load the relocation tools and caches relocated
  * JARs to avoid repeated processing.</p>
  */
-public class RelocationHandler implements AutoCloseable {
+public class RelocationHandler {
     private static final List<Dependency> RELOCATION_DEPENDENCIES = List.of(
             Dependency.of("org.ow2.asm", "asm", "9.7"),
             Dependency.of("org.ow2.asm", "asm-commons", "9.7"),
@@ -160,7 +159,7 @@ public class RelocationHandler implements AutoCloseable {
     public static RelocationHandler create(@NotNull LibraryManager libraryManager) {
         requireNonNull(libraryManager, "Library manager cannot be null");
 
-        IsolatedClassLoader classLoader = new IsolatedClassLoaderImpl();
+        IsolatedClassLoader classLoader = new IsolatedClassLoader();
 
         try {
             libraryManager.loadDependencies(classLoader, RELOCATION_DEPENDENCIES, Collections.emptyList());
@@ -189,13 +188,6 @@ public class RelocationHandler implements AutoCloseable {
     @NotNull
     public static List<Dependency> getRelocationDependencies() {
         return List.copyOf(RELOCATION_DEPENDENCIES);
-    }
-
-    @Override
-    public void close() {
-        try {
-            classLoader.close();
-        } catch (Exception e) { }
     }
 
     @Override

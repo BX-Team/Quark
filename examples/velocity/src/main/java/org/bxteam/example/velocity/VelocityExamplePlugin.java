@@ -43,11 +43,4 @@ public class VelocityExamplePlugin {
 
         libraryManager.loadDependency("com.google.code.gson", "gson", "2.10.1");
     }
-
-    @Subscribe
-    public void onProxyShutdown(ProxyShutdownEvent event) {
-        if (libraryManager != null) {
-            libraryManager.close();
-        }
-    }
 }
