@@ -86,8 +86,8 @@ public class DependencyResolver {
         private final Path localRepository;
         private boolean includeDependencyManagement = false;
         private int maxTransitiveDepth = Integer.MAX_VALUE;
-        private Set<String> excludedGroupIds = new HashSet<>();
-        private List<Pattern> excludedArtifactPatterns = new ArrayList<>();
+        private final Set<String> excludedGroupIds = new HashSet<>();
+        private final List<Pattern> excludedArtifactPatterns = new ArrayList<>();
         private boolean skipOptionalDependencies = true;
         private boolean skipTestDependencies = true;
 
