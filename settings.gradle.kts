@@ -8,6 +8,7 @@ setOf(
     "bukkit",
     "bungee",
     "core",
+    "fabric",
     "paper",
     "velocity"
 ).forEach {
