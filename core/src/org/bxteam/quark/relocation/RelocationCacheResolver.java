@@ -148,7 +148,9 @@ public class RelocationCacheResolver {
         try {
             Path cacheFile = getRelocationsCacheFile(dependency);
             Files.deleteIfExists(cacheFile);
-        } catch (IOException e) { }
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to clear relocation cache for dependency: " + dependency, e);
+        }
     }
 
     @Override

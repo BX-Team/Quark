@@ -28,9 +28,6 @@ public final class StringUtils {
      */
     @NotNull
     public static String sanitizePath(@NotNull String input) {
-        if (input == null) {
-            throw new NullPointerException("Input string cannot be null");
-        }
         return input.replace(BRACE_PLACEHOLDER, DOT_REPLACEMENT);
     }
 
