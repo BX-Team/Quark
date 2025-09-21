@@ -1,10 +1,7 @@
-import org.bxteam.runserver.ServerType
-
 plugins {
     id("java")
     id("com.gradleup.shadow") version "8.3.9"
     id("de.eldoria.plugin-yml.bukkit") version "0.7.1"
-    id("org.bxteam.runserver") version "1.2.2"
 }
 
 repositories {
@@ -50,10 +47,5 @@ tasks {
         archiveBaseName.set(pluginName)
         archiveClassifier.set("")
         minimize()
-    }
-
-    runServer {
-        serverType(ServerType.BUNGEECORD)
-        serverVersion("1.21")
     }
 }

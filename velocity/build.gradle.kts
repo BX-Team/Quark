@@ -11,5 +11,5 @@ repositories {
 dependencies {
     api(project(":quark-core"))
 
-    compileOnly("com.velocitypowered:velocity-api:3.4.0-SNAPSHOT")
+    compileOnly("com.velocitypowered:velocity-api:3.1.1")
 }

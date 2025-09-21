@@ -1,9 +1,7 @@
-import org.bxteam.runserver.ServerType
-
 plugins {
     id("java")
     id("com.gradleup.shadow") version "8.3.9"
-    id("org.bxteam.runserver") version "1.2.2"
+    id("xyz.jpenilla.run-velocity") version "2.3.1"
 }
 
 repositories {
@@ -41,8 +39,7 @@ tasks {
         minimize()
     }
 
-    runServer {
-        serverType(ServerType.VELOCITY)
-        serverVersion("3.4.0-SNAPSHOT")
+    runVelocity {
+        velocityVersion("3.4.0-SNAPSHOT")
     }
 }

@@ -31,11 +31,15 @@ public class JavaLogAdapter implements LogAdapter {
     }
 
     private Level convertLevel(LogLevel level) {
-        return switch (level) {
-            case DEBUG -> Level.FINE;
-            case WARN -> Level.WARNING;
-            case ERROR -> Level.SEVERE;
-            default -> Level.INFO;
-        };
+        switch (level) {
+            case DEBUG:
+                return Level.FINE;
+            case WARN:
+                return Level.WARNING;
+            case ERROR:
+                return Level.SEVERE;
+            default:
+                return Level.INFO;
+        }
     }
 }

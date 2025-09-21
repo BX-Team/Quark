@@ -255,7 +255,7 @@ public abstract class LibraryManager {
      * Sets the maximum depth for transitive dependencies.
      * Root dependencies have depth 0.
      *
-     * @param depth the maximum depth (must be >= 0)
+     * @param depth the maximum depth (must be &gt;= 0)
      * @return this library manager instance for chaining
      */
     public LibraryManager maxTransitiveDepth(int depth) {

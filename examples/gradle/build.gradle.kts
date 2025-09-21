@@ -1,10 +1,7 @@
-import org.bxteam.runserver.ServerType
-
 plugins {
     id("java-library")
     id("com.gradleup.shadow") version "8.3.9"
     id("de.eldoria.plugin-yml.bukkit") version "0.7.1"
-    id("org.bxteam.runserver") version "1.2.2"
     id("org.bxteam.quark") // version "1.x.x" // <-- uncomment in your project and set the version
 }
 
@@ -58,12 +55,5 @@ tasks {
         archiveBaseName.set(pluginName)
         archiveClassifier.set("")
         minimize()
-    }
-
-    runServer {
-        serverType(ServerType.PAPER)
-        serverVersion("1.21.8")
-        noGui(true)
-        acceptMojangEula()
     }
 }

@@ -1,10 +1,8 @@
-import org.bxteam.runserver.ServerType
-
 plugins {
     id("java")
     id("com.gradleup.shadow") version "8.3.9"
     id("de.eldoria.plugin-yml.bukkit") version "0.7.1"
-    id("org.bxteam.runserver") version "1.2.2"
+    id("xyz.jpenilla.run-paper") version "2.3.1"
 }
 
 repositories {
@@ -54,9 +52,7 @@ tasks {
     }
 
     runServer {
-        serverType(ServerType.PAPER)
-        serverVersion("1.21.8")
-        noGui(true)
-        acceptMojangEula()
+        minecraftVersion("1.21.8")
+        allJvmArgs = listOf("-DPaper.IgnoreJavaVersion=true")
     }
 }
