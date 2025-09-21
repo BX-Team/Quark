@@ -1,5 +1,6 @@
 package org.bxteam.quark.relocation;
 
+import lombok.Getter;
 import org.bxteam.quark.util.StringUtils;
 import org.jetbrains.annotations.NotNull;
 
@@ -12,11 +13,12 @@ import static java.util.Objects.requireNonNull;
  * namespace conflicts when multiple applications use different versions
  * of the same dependency. This is particularly important in plugin
  * environments where multiple plugins might bundle the same libraries.</p>
- *
- * @param pattern the original package pattern to match
- * @param relocatedPattern the new package pattern to replace with
  */
-public record Relocation(@NotNull String pattern, @NotNull String relocatedPattern) {
+@Getter
+public final class Relocation {
+    private final @NotNull String pattern;
+    private final @NotNull String relocatedPattern;
+
     /**
      * Creates a new relocation with pattern validation and normalization.
      *

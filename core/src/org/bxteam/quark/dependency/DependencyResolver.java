@@ -1,8 +1,14 @@
 package org.bxteam.quark.dependency;
 
+import org.bxteam.quark.dependency.model.DownloadResult;
+import org.bxteam.quark.dependency.model.PomContext;
+import org.bxteam.quark.dependency.model.ResolutionResult;
+import org.bxteam.quark.dependency.model.ResolvedDependency;
 import org.bxteam.quark.logger.Logger;
-import org.bxteam.quark.pom.MetadataReader;
-import org.bxteam.quark.pom.PomReader;
+import org.bxteam.quark.pom.*;
+import org.bxteam.quark.pom.model.MavenMetadata;
+import org.bxteam.quark.pom.model.ParentInfo;
+import org.bxteam.quark.pom.model.PomInfo;
 import org.bxteam.quark.repository.Repository;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -35,8 +41,8 @@ public class DependencyResolver {
     private final boolean skipOptionalDependencies;
     private final boolean skipTestDependencies;
 
-    private final Map<String, PomReader.PomInfo> pomCache = new ConcurrentHashMap<>();
-    private final Map<String, MetadataReader.MavenMetadata> metadataCache = new ConcurrentHashMap<>();
+    private final Map<String, PomInfo> pomCache = new ConcurrentHashMap<>();
+    private final Map<String, MavenMetadata> metadataCache = new ConcurrentHashMap<>();
     private final Map<String, String> resolvedVersionCache = new ConcurrentHashMap<>();
     private final Set<String> processedDependencies = ConcurrentHashMap.newKeySet();
     private final Map<String, Integer> dependencyDepths = new ConcurrentHashMap<>();
@@ -343,13 +349,13 @@ public class DependencyResolver {
      */
     @Nullable
     private PomContext downloadAndProcessPom(@NotNull Dependency dependency) throws Exception {
-        PomReader.PomInfo pomInfo = downloadAndParsePom(dependency);
+        PomInfo pomInfo = downloadAndParsePom(dependency);
         if (pomInfo == null) {
             logger.debug("No POM found for: " + dependency.toShortString());
             return null;
         }
 
-        PomReader.PomInfo mergedPomInfo = processParentHierarchy(pomInfo);
+        PomInfo mergedPomInfo = processParentHierarchy(pomInfo);
 
         List<Dependency> resolvedDependencies = resolveAllDependencies(mergedPomInfo);
 
@@ -364,18 +370,18 @@ public class DependencyResolver {
      * @throws Exception if an error occurs during processing
      */
     @NotNull
-    private PomReader.PomInfo processParentHierarchy(@NotNull PomReader.PomInfo pomInfo) throws Exception {
-        List<PomReader.PomInfo> pomHierarchy = new ArrayList<>();
+    private PomInfo processParentHierarchy(@NotNull PomInfo pomInfo) throws Exception {
+        List<PomInfo> pomHierarchy = new ArrayList<>();
 
-        PomReader.PomInfo currentPom = pomInfo;
+        PomInfo currentPom = pomInfo;
         pomHierarchy.add(currentPom);
 
         while (currentPom.hasParent()) {
-            PomReader.ParentInfo parentInfo = currentPom.parentInfo();
+            ParentInfo parentInfo = currentPom.parentInfo();
             Dependency parentDependency = parentInfo.toDependency();
             logger.debug("Processing parent POM: " + parentDependency.toShortString());
 
-            PomReader.PomInfo parentPom = downloadAndParsePom(parentDependency);
+            PomInfo parentPom = downloadAndParsePom(parentDependency);
             if (parentPom == null) {
                 logger.debug("Could not download parent POM: " + parentDependency.toShortString());
                 break;
@@ -401,13 +407,13 @@ public class DependencyResolver {
      * @throws IllegalArgumentException if the hierarchy is empty
      */
     @NotNull
-    private PomReader.PomInfo mergePomHierarchy(@NotNull List<PomReader.PomInfo> pomHierarchy) {
+    private PomInfo mergePomHierarchy(@NotNull List<PomInfo> pomHierarchy) {
         if (pomHierarchy.isEmpty()) {
             throw new IllegalArgumentException("POM hierarchy cannot be empty");
         }
 
         if (pomHierarchy.size() == 1) {
-            PomReader.PomInfo singlePom = pomHierarchy.get(0);
+            PomInfo singlePom = pomHierarchy.get(0);
             globalDependencyManagement.putAll(singlePom.dependencyManagement());
             logger.debug("Added " + singlePom.dependencyManagement().size() + " entries to global dependency management from " + singlePom.artifactId());
             return singlePom;
@@ -417,7 +423,7 @@ public class DependencyResolver {
         Map<String, String> mergedProperties = new HashMap<>();
 
         for (int i = pomHierarchy.size() - 1; i >= 0; i--) {
-            PomReader.PomInfo pom = pomHierarchy.get(i);
+            PomInfo pom = pomHierarchy.get(i);
 
             Map<String, String> pomProperties = pom.properties();
             for (Map.Entry<String, String> entry : pomProperties.entrySet()) {
@@ -437,9 +443,9 @@ public class DependencyResolver {
         globalDependencyManagement.putAll(mergedDependencyManagement);
         logger.debug("Merged " + mergedDependencyManagement.size() + " dependency management entries from hierarchy");
 
-        PomReader.PomInfo childPom = pomHierarchy.get(0);
+        PomInfo childPom = pomHierarchy.get(0);
 
-        return new PomReader.PomInfo(
+        return new PomInfo(
                 childPom.groupId(),
                 childPom.artifactId(),
                 childPom.version(),
@@ -457,7 +463,7 @@ public class DependencyResolver {
      * @return a list of resolved dependencies
      */
     @NotNull
-    private List<Dependency> resolveAllDependencies(@NotNull PomReader.PomInfo pomInfo) {
+    private List<Dependency> resolveAllDependencies(@NotNull PomInfo pomInfo) {
         List<Dependency> resolved = new ArrayList<>();
 
         for (Dependency dependency : pomInfo.getRuntimeDependencies()) {
@@ -522,7 +528,7 @@ public class DependencyResolver {
      * @param pomInfo the POM information
      * @param resolvedList the list to add resolved dependencies to
      */
-    private void resolveDependenciesFromDependencyManagement(@NotNull PomReader.PomInfo pomInfo, @NotNull List<Dependency> resolvedList) {
+    private void resolveDependenciesFromDependencyManagement(@NotNull PomInfo pomInfo, @NotNull List<Dependency> resolvedList) {
         Map<String, String> dependencyManagement = new HashMap<>(pomInfo.dependencyManagement());
         dependencyManagement.putAll(globalDependencyManagement);
 
@@ -575,7 +581,7 @@ public class DependencyResolver {
      * @return the dependency with resolved version
      */
     @NotNull
-    private Dependency resolveDependencyFromManagement(@NotNull Dependency dependency, @NotNull PomReader.PomInfo pomInfo) {
+    private Dependency resolveDependencyFromManagement(@NotNull Dependency dependency, @NotNull PomInfo pomInfo) {
         if (dependency.getVersion() != null && !dependency.getVersion().trim().isEmpty()) {
             return dependency;
         }
@@ -634,7 +640,7 @@ public class DependencyResolver {
         }
 
         try {
-            MetadataReader.MavenMetadata metadata = downloadAndParseMetadata(dependency);
+            MavenMetadata metadata = downloadAndParseMetadata(dependency);
             if (metadata != null) {
                 String bestVersion = metadata.getBestVersion();
                 if (bestVersion != null) {
@@ -658,10 +664,10 @@ public class DependencyResolver {
      * @throws Exception if an error occurs during download or parsing
      */
     @Nullable
-    private MetadataReader.MavenMetadata downloadAndParseMetadata(@NotNull Dependency dependency) throws Exception {
+    private MavenMetadata downloadAndParseMetadata(@NotNull Dependency dependency) throws Exception {
         String metadataKey = dependency.getGroupArtifactId();
 
-        MetadataReader.MavenMetadata cached = metadataCache.get(metadataKey);
+        MavenMetadata cached = metadataCache.get(metadataKey);
         if (cached != null) {
             return cached;
         }
@@ -681,7 +687,7 @@ public class DependencyResolver {
                 connection.setRequestProperty("User-Agent", "Quark-LibraryManager/2.0");
 
                 try (InputStream inputStream = connection.getInputStream()) {
-                    MetadataReader.MavenMetadata metadata = metadataReader.readMetadata(inputStream, metadataUrl.toString());
+                    MavenMetadata metadata = metadataReader.readMetadata(inputStream, metadataUrl.toString());
                     metadataCache.put(metadataKey, metadata);
                     logger.debug("Successfully parsed metadata for " + metadataKey);
                     return metadata;
@@ -704,10 +710,10 @@ public class DependencyResolver {
      * @throws Exception if an error occurs during download or parsing
      */
     @Nullable
-    private PomReader.PomInfo downloadAndParsePom(@NotNull Dependency dependency) throws Exception {
+    private PomInfo downloadAndParsePom(@NotNull Dependency dependency) throws Exception {
         String pomKey = dependency.getCoordinates();
 
-        PomReader.PomInfo cached = pomCache.get(pomKey);
+        PomInfo cached = pomCache.get(pomKey);
         if (cached != null) {
             return cached;
         }
@@ -727,7 +733,7 @@ public class DependencyResolver {
 
         if (Files.exists(localPomPath)) {
             try {
-                PomReader.PomInfo pomInfo = pomReader.readPom(localPomPath);
+                PomInfo pomInfo = pomReader.readPom(localPomPath);
                 pomCache.put(pomKey, pomInfo);
                 logger.debug("Successfully parsed POM for " + dependency.toShortString());
                 return pomInfo;
@@ -883,157 +889,6 @@ public class DependencyResolver {
                     Files.size(jarFile) > 0;
         } catch (Exception e) {
             return false;
-        }
-    }
-
-    /**
-     * Context for POM processing including all resolved dependencies.
-     *
-     * @param pomInfo the POM information
-     * @param allDependencies the list of all resolved dependencies
-     */
-    private record PomContext(@NotNull PomReader.PomInfo pomInfo, @NotNull List<Dependency> allDependencies) {
-        /**
-         * Creates a new POM context.
-         *
-         * @param pomInfo the POM information
-         * @param allDependencies the list of all resolved dependencies
-         * @throws NullPointerException if any parameter is null
-         */
-        public PomContext {
-            requireNonNull(pomInfo, "POM info cannot be null");
-            allDependencies = List.copyOf(requireNonNull(allDependencies, "Dependencies cannot be null"));
-        }
-    }
-
-    /**
-     * Result of a JAR download operation.
-     *
-     * @param jarPath the path to the downloaded JAR file
-     * @param downloadedFrom the repository URL the JAR was downloaded from, or null if cached
-     */
-    private record DownloadResult(@NotNull Path jarPath, @Nullable String downloadedFrom) {
-        /**
-         * Creates a new download result.
-         *
-         * @param jarPath the path to the downloaded JAR file
-         * @param downloadedFrom the repository URL the JAR was downloaded from, or null if cached
-         * @throws NullPointerException if jarPath is null
-         */
-        public DownloadResult {
-            requireNonNull(jarPath, "JAR path cannot be null");
-        }
-    }
-
-    /**
-     * Result of dependency resolution.
-     *
-     * @param resolvedDependencies the list of successfully resolved dependencies
-     * @param errors the list of error messages encountered during resolution
-     */
-    public record ResolutionResult(List<ResolvedDependency> resolvedDependencies, List<String> errors) {
-        /**
-         * Creates a new resolution result.
-         *
-         * @param resolvedDependencies the list of successfully resolved dependencies
-         * @param errors the list of error messages encountered during resolution
-         * @throws NullPointerException if any parameter is null
-         */
-        public ResolutionResult(@NotNull List<ResolvedDependency> resolvedDependencies, @NotNull List<String> errors) {
-            this.resolvedDependencies = List.copyOf(resolvedDependencies);
-            this.errors = List.copyOf(errors);
-        }
-
-        /**
-         * Gets the resolved dependencies.
-         *
-         * @return an immutable list of resolved dependencies
-         */
-        @Override
-        @NotNull
-        public List<ResolvedDependency> resolvedDependencies() {
-            return resolvedDependencies;
-        }
-
-        /**
-         * Gets the error messages.
-         *
-         * @return an immutable list of error messages
-         */
-        @Override
-        @NotNull
-        public List<String> errors() {
-            return errors;
-        }
-
-        /**
-         * Checks if any errors occurred during resolution.
-         *
-         * @return true if there are error messages, false otherwise
-         */
-        public boolean hasErrors() {
-            return !errors.isEmpty();
-        }
-
-        /**
-         * Gets the total number of resolved dependencies.
-         *
-         * @return the number of resolved dependencies
-         */
-        public int getDependencyCount() {
-            return resolvedDependencies.size();
-        }
-    }
-
-    /**
-     * A successfully resolved dependency with its JAR path.
-     *
-     * @param dependency the resolved dependency information
-     * @param jarPath the path to the JAR file
-     */
-    public record ResolvedDependency(Dependency dependency, Path jarPath) {
-        /**
-         * Creates a new resolved dependency.
-         *
-         * @param dependency the resolved dependency information
-         * @param jarPath the path to the JAR file
-         * @throws NullPointerException if any parameter is null
-         */
-        public ResolvedDependency(@NotNull Dependency dependency, @NotNull Path jarPath) {
-            this.dependency = requireNonNull(dependency, "Dependency cannot be null");
-            this.jarPath = requireNonNull(jarPath, "JAR path cannot be null");
-        }
-
-        /**
-         * Gets the dependency information.
-         *
-         * @return the dependency
-         */
-        @Override
-        @NotNull
-        public Dependency dependency() {
-            return dependency;
-        }
-
-        /**
-         * Gets the path to the JAR file.
-         *
-         * @return the JAR file path
-         */
-        @Override
-        @NotNull
-        public Path jarPath() {
-            return jarPath;
-        }
-
-        /**
-         * Returns a string representation of the resolved dependency.
-         *
-         * @return a string representation
-         */
-        @Override
-        public String toString() {
-            return dependency.toShortString() + " -> " + jarPath;
         }
     }
 }

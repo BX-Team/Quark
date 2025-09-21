@@ -1,5 +1,6 @@
 package org.bxteam.quark.util;
 
+import lombok.experimental.UtilityClass;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -9,13 +10,10 @@ import org.jetbrains.annotations.Nullable;
  * <p>This class provides common string operations such as path sanitization,
  * pattern replacement, and validation utilities.</p>
  */
-public final class StringUtils {
-    private static final String BRACE_PLACEHOLDER = "{}";
-    private static final String DOT_REPLACEMENT = ".";
-
-    private StringUtils() {
-        throw new UnsupportedOperationException("This is a utility class and cannot be instantiated.");
-    }
+@UtilityClass
+public class StringUtils {
+    private final String BRACE_PLACEHOLDER = "{}";
+    private final String DOT_REPLACEMENT = ".";
 
     /**
      * Replaces all occurrences of "{}" with "." in the provided string.
@@ -27,7 +25,7 @@ public final class StringUtils {
      * @throws NullPointerException if input is null
      */
     @NotNull
-    public static String sanitizePath(@NotNull String input) {
+    public String sanitizePath(@NotNull String input) {
         return input.replace(BRACE_PLACEHOLDER, DOT_REPLACEMENT);
     }
 
@@ -37,7 +35,7 @@ public final class StringUtils {
      * @param str the string to check
      * @return true if the string is null, empty, or contains only whitespace
      */
-    public static boolean isBlank(@Nullable String str) {
+    public boolean isBlank(@Nullable String str) {
         return str == null || str.trim().isEmpty();
     }
 
@@ -47,7 +45,7 @@ public final class StringUtils {
      * @param str the string to check
      * @return true if the string is not null and contains non-whitespace characters
      */
-    public static boolean isNotBlank(@Nullable String str) {
+    public boolean isNotBlank(@Nullable String str) {
         return !isBlank(str);
     }
 
@@ -59,7 +57,7 @@ public final class StringUtils {
      * @return the original string if not blank, otherwise the default value
      */
     @NotNull
-    public static String defaultIfBlank(@Nullable String str, @NotNull String defaultValue) {
+    public String defaultIfBlank(@Nullable String str, @NotNull String defaultValue) {
         return isBlank(str) ? defaultValue : str;
     }
 }

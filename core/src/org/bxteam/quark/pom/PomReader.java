@@ -1,6 +1,9 @@
 package org.bxteam.quark.pom;
 
 import org.bxteam.quark.dependency.Dependency;
+import org.bxteam.quark.pom.exception.PomParsingException;
+import org.bxteam.quark.pom.model.ParentInfo;
+import org.bxteam.quark.pom.model.PomInfo;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.w3c.dom.Document;
@@ -417,141 +420,5 @@ public class PomReader {
             }
         }
         return null;
-    }
-
-    /**
-     * Parent POM information.
-     *
-     * @param groupId the parent group ID
-     * @param artifactId the parent artifact ID
-     * @param version the parent version
-     */
-    public record ParentInfo(
-            @NotNull String groupId,
-            @NotNull String artifactId,
-            @NotNull String version
-    ) {
-        /**
-         * Creates a new ParentInfo.
-         *
-         * @param groupId the parent group ID
-         * @param artifactId the parent artifact ID
-         * @param version the parent version
-         * @throws NullPointerException if any parameter is null
-         */
-        public ParentInfo {
-            requireNonNull(groupId, "Group ID cannot be null");
-            requireNonNull(artifactId, "Artifact ID cannot be null");
-            requireNonNull(version, "Version cannot be null");
-        }
-
-        /**
-         * Creates a Dependency for this parent.
-         *
-         * @return a Dependency object representing this parent
-         */
-        @NotNull
-        public Dependency toDependency() {
-            return Dependency.of(groupId, artifactId, version);
-        }
-    }
-
-    /**
-     * Information extracted from a POM file.
-     *
-     * @param groupId the group ID, or null if not specified
-     * @param artifactId the artifact ID
-     * @param version the version, or null if not specified
-     * @param dependencies the list of dependencies
-     * @param properties the map of properties
-     * @param dependencyManagement the map of dependency management entries
-     * @param parentInfo the parent POM information, or null if not present
-     */
-    public record PomInfo(String groupId, String artifactId, String version, List<Dependency> dependencies,
-                          Map<String, String> properties, Map<String, String> dependencyManagement,
-                          ParentInfo parentInfo) {
-        /**
-         * Creates a new PomInfo.
-         *
-         * @param groupId the group ID, or null if not specified
-         * @param artifactId the artifact ID
-         * @param version the version, or null if not specified
-         * @param dependencies the list of dependencies
-         * @param properties the map of properties
-         * @param dependencyManagement the map of dependency management entries
-         * @param parentInfo the parent POM information, or null if not present
-         * @throws NullPointerException if artifactId is null
-         */
-        public PomInfo(@Nullable String groupId,
-                       @NotNull String artifactId,
-                       @Nullable String version,
-                       @NotNull List<Dependency> dependencies,
-                       @NotNull Map<String, String> properties,
-                       @NotNull Map<String, String> dependencyManagement,
-                       @Nullable ParentInfo parentInfo) {
-            this.groupId = groupId;
-            this.artifactId = requireNonNull(artifactId, "Artifact ID cannot be null");
-            this.version = version;
-            this.dependencies = List.copyOf(dependencies);
-            this.properties = Map.copyOf(properties);
-            this.dependencyManagement = Map.copyOf(dependencyManagement);
-            this.parentInfo = parentInfo;
-        }
-
-        /**
-         * Gets runtime dependencies (filtering out test and provided scope).
-         *
-         * @return the list of runtime dependencies
-         */
-        @NotNull
-        public List<Dependency> getRuntimeDependencies() {
-            return dependencies;
-        }
-
-        /**
-         * Checks if this POM has a parent.
-         *
-         * @return true if this POM has a parent, false otherwise
-         */
-        public boolean hasParent() {
-            return parentInfo != null;
-        }
-
-        /**
-         * Gets the project dependency if groupId and version are available.
-         *
-         * @return the project dependency, or null if insufficient information
-         */
-        @Nullable
-        public Dependency getProjectDependency() {
-            if (groupId != null && version != null) {
-                return Dependency.of(groupId, artifactId, version);
-            }
-            return null;
-        }
-    }
-
-    /**
-     * Exception thrown when POM parsing fails.
-     */
-    public static class PomParsingException extends Exception {
-        /**
-         * Creates a new PomParsingException with the specified message.
-         *
-         * @param message the detail message
-         */
-        public PomParsingException(String message) {
-            super(message);
-        }
-
-        /**
-         * Creates a new PomParsingException with the specified message and cause.
-         *
-         * @param message the detail message
-         * @param cause the cause of this exception
-         */
-        public PomParsingException(String message, Throwable cause) {
-            super(message, cause);
-        }
     }
 }

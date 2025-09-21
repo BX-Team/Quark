@@ -1,5 +1,7 @@
 package org.bxteam.quark.pom;
 
+import org.bxteam.quark.pom.exception.MetadataParsingException;
+import org.bxteam.quark.pom.model.MavenMetadata;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.w3c.dom.Document;
@@ -129,83 +131,5 @@ public class MetadataReader {
     private String getTextContent(@NotNull XPath xpath, @NotNull Document document, @NotNull String expression) throws XPathExpressionException {
         Node node = (Node) xpath.evaluate(expression, document, XPathConstants.NODE);
         return node != null ? node.getTextContent().trim() : null;
-    }
-
-    /**
-     * Contains Maven metadata information extracted from a maven-metadata.xml file.
-     *
-     * <p>This record represents the structured information found in Maven repository
-     * metadata files, including artifact coordinates and version information.</p>
-     *
-     * @param groupId the Maven group ID, or null if not specified
-     * @param artifactId the Maven artifact ID, or null if not specified
-     * @param latest the latest version (including snapshots), or null if not specified
-     * @param release the latest release version (excluding snapshots), or null if not specified
-     * @param versions an immutable list of all available versions
-     */
-    public record MavenMetadata(
-            @Nullable String groupId,
-            @Nullable String artifactId,
-            @Nullable String latest,
-            @Nullable String release,
-            @NotNull List<String> versions
-    ) {
-        public MavenMetadata {
-            versions = List.copyOf(versions);
-        }
-
-        /**
-         * Gets the best version to use based on available version information.
-         *
-         * <p>The selection priority is:</p>
-         * <ol>
-         *   <li>Release version (if available and non-empty)</li>
-         *   <li>Latest version (if available and non-empty)</li>
-         *   <li>Last version in the versions list (if list is not empty)</li>
-         *   <li>null if no version information is available</li>
-         * </ol>
-         *
-         * @return the best available version, or null if no version information is available
-         */
-        @Nullable
-        public String getBestVersion() {
-            if (release != null && !release.trim().isEmpty()) {
-                return release;
-            }
-            if (latest != null && !latest.trim().isEmpty()) {
-                return latest;
-            }
-            if (!versions.isEmpty()) {
-                return versions.get(versions.size() - 1);
-            }
-            return null;
-        }
-    }
-
-    /**
-     * Exception thrown when Maven metadata parsing fails.
-     *
-     * <p>This exception indicates that the metadata XML could not be parsed,
-     * either due to XML syntax errors, missing required elements, or I/O issues.</p>
-     */
-    public static class MetadataParsingException extends Exception {
-        /**
-         * Creates a new MetadataParsingException with the specified message.
-         *
-         * @param message the detail message
-         */
-        public MetadataParsingException(String message) {
-            super(message);
-        }
-
-        /**
-         * Creates a new MetadataParsingException with the specified message and cause.
-         *
-         * @param message the detail message
-         * @param cause the cause of this exception
-         */
-        public MetadataParsingException(String message, Throwable cause) {
-            super(message, cause);
-        }
     }
 }

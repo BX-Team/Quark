@@ -1,7 +1,10 @@
 package org.bxteam.quark;
 
+import lombok.Getter;
 import org.bxteam.quark.classloader.IsolatedClassLoader;
 import org.bxteam.quark.dependency.Dependency;
+import org.bxteam.quark.dependency.model.ResolutionResult;
+import org.bxteam.quark.dependency.model.ResolvedDependency;
 import org.bxteam.quark.gradle.GradleMetadataLoader;
 import org.bxteam.quark.logger.LogLevel;
 import org.bxteam.quark.logger.Logger;
@@ -392,7 +395,7 @@ public abstract class LibraryManager {
         Instant startTime = Instant.now();
 
         try {
-            DependencyResolver.ResolutionResult result = dependencyResolver.resolveDependencies(dependencies);
+            ResolutionResult result = dependencyResolver.resolveDependencies(dependencies);
 
             if (result.hasErrors()) {
                 logger.warn("Dependency resolution completed with " + result.errors().size() + " errors");
@@ -444,7 +447,7 @@ public abstract class LibraryManager {
         Instant startTime = Instant.now();
 
         try {
-            DependencyResolver.ResolutionResult result = dependencyResolver.resolveDependencies(dependencies);
+            ResolutionResult result = dependencyResolver.resolveDependencies(dependencies);
 
             if (result.hasErrors()) {
                 logger.warn("Dependency resolution completed with " + result.errors().size() + " errors:");
@@ -475,11 +478,11 @@ public abstract class LibraryManager {
      * @return a list of dependency load entries
      */
     @NotNull
-    private List<DependencyLoadEntry> applyRelocations(@NotNull List<DependencyResolver.ResolvedDependency> resolvedDependencies,
+    private List<DependencyLoadEntry> applyRelocations(@NotNull List<ResolvedDependency> resolvedDependencies,
                                                        @NotNull List<Relocation> relocations) {
         List<DependencyLoadEntry> loadEntries = new ArrayList<>();
 
-        for (DependencyResolver.ResolvedDependency resolved : resolvedDependencies) {
+        for (ResolvedDependency resolved : resolvedDependencies) {
             Dependency dependency = resolved.dependency();
             Path jarPath = resolved.jarPath();
 
@@ -847,11 +850,12 @@ public abstract class LibraryManager {
 
     /**
      * Represents a dependency with its loaded JAR file path.
-     *
-     * @param dependency the dependency information
-     * @param path the local file system path to the JAR file
      */
-    public record DependencyLoadEntry(@NotNull Dependency dependency, @NotNull Path path) {
+    @Getter
+    public static final class DependencyLoadEntry {
+        private final @NotNull Dependency dependency;
+        private final @NotNull Path path;
+
         /**
          * Creates a new DependencyLoadEntry.
          *
@@ -859,20 +863,34 @@ public abstract class LibraryManager {
          * @param path the local file system path to the JAR file
          * @throws NullPointerException if any parameter is null
          */
-        public DependencyLoadEntry {
+        public DependencyLoadEntry(@NotNull Dependency dependency, @NotNull Path path) {
             requireNonNull(dependency, "Dependency cannot be null");
             requireNonNull(path, "Path cannot be null");
+            this.dependency = dependency;
+            this.path = path;
         }
     }
 
     /**
      * Contains statistics about the current LibraryManager state.
-     *
-     * @param repositoryCount the number of configured repositories
-     * @param loadedDependencyCount the number of loaded dependencies
-     * @param isolatedClassLoaderCount the number of created isolated class loaders
      */
-    public record LibraryManagerStats(int repositoryCount, int loadedDependencyCount, int isolatedClassLoaderCount) {
+    @Getter
+    public static final class LibraryManagerStats {
+        private final int repositoryCount;
+        private final int loadedDependencyCount;
+        private final int isolatedClassLoaderCount;
+
+        /**
+         * @param repositoryCount the number of configured repositories
+         * @param loadedDependencyCount the number of loaded dependencies
+         * @param isolatedClassLoaderCount the number of created isolated class loaders
+         */
+        public LibraryManagerStats(int repositoryCount, int loadedDependencyCount, int isolatedClassLoaderCount) {
+            this.repositoryCount = repositoryCount;
+            this.loadedDependencyCount = loadedDependencyCount;
+            this.isolatedClassLoaderCount = isolatedClassLoaderCount;
+        }
+
         /**
          * Returns a string representation of the statistics.
          *
@@ -881,7 +899,7 @@ public abstract class LibraryManager {
         @Override
         public String toString() {
             return String.format("LibraryManagerStats{repositories=%d, loadedDependencies=%d, isolatedClassLoaders=%d}",
-                    repositoryCount, loadedDependencyCount, isolatedClassLoaderCount);
+                repositoryCount, loadedDependencyCount, isolatedClassLoaderCount);
         }
     }
 
