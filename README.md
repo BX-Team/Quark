@@ -3,9 +3,10 @@
 # Quark
 A lightweight, runtime dependency management system for plugins running on Minecraft server platforms.
 
-![paper](https://cdn.jsdelivr.net/npm/@intergrav/devins-badges@3/assets/cozy/supported/paper_vector.svg)
 ![bukkit](https://cdn.jsdelivr.net/npm/@intergrav/devins-badges@3/assets/cozy/supported/bukkit_vector.svg)
 ![bungeecord](https://cdn.jsdelivr.net/npm/@intergrav/devins-badges@3/assets/cozy/supported/bungeecord_vector.svg)
+![fabric](https://cdn.jsdelivr.net/npm/@intergrav/devins-badges@3/assets/cozy/supported/fabric_vector.svg)
+![paper](https://cdn.jsdelivr.net/npm/@intergrav/devins-badges@3/assets/cozy/supported/paper_vector.svg)
 ![velocity](https://cdn.jsdelivr.net/npm/@intergrav/devins-badges@3/assets/cozy/supported/velocity_vector.svg)
 
 [![Chat on Discord](https://cdn.jsdelivr.net/npm/@intergrav/devins-badges@3/assets/cozy/social/discord-plural_vector.svg)](https://discord.gg/qNyybSSPm5)
@@ -20,7 +21,7 @@ A lightweight, runtime dependency management system for plugins running on Minec
 - **📦 Package Relocation** - Relocate packages to avoid conflicts with other plugins or server dependencies
 - **🔒 Isolated Class Loading** - Load dependencies into isolated class loaders to prevent conflicts
 - **🐘 Gradle Plugin** - Seamless integration with Gradle and ShadowJar
-- **🎯 Platform Specific** - Dedicated implementations for **Paper**, **Bukkit**, **BungeeCord**, and **Velocity**
+- **🎯 Platform Specific** - Dedicated implementations for **Bukkit**, **BungeeCord**, **Fabric**, **Paper**  and **Velocity**
 
 ## 📥 Getting Started
 
