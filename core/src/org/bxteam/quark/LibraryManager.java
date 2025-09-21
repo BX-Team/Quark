@@ -37,29 +37,55 @@ import static java.util.Objects.requireNonNull;
  * implementations (Bukkit, Velocity, etc.).</p>
  */
 public abstract class LibraryManager {
+    /** Default name for the libraries directory. */
     private static final String DEFAULT_LIBS_DIRECTORY = "libs";
 
+    /** Logger instance for this LibraryManager, used for all logging operations. */
     protected final Logger logger;
+
+    /** Base directory where libraries and cache data are stored. */
     protected final Path dataDirectory;
+
+    /** Local repository for caching downloaded dependencies. */
     protected final LocalRepository localRepository;
 
+    /** Thread-safe set of globally configured Maven repositories. */
     protected final Set<Repository> globalRepositories = ConcurrentHashMap.newKeySet();
+
+    /** Flag to ensure Maven Central warning is shown only once per instance. */
     private final AtomicBoolean mavenCentralWarningShown = new AtomicBoolean(false);
 
+    /** Whether to include dependencies from dependencyManagement sections in POMs. */
     private boolean includeDependencyManagement = false;
+
+    /** Maximum depth for resolving transitive dependencies (0 = root dependencies only). */
     private int maxTransitiveDepth = Integer.MAX_VALUE;
+
+    /** Thread-safe set of group IDs to exclude from dependency resolution. */
     private final Set<String> excludedGroupIds = ConcurrentHashMap.newKeySet();
+
+    /** Thread-safe list of regex patterns for excluding specific artifacts. */
     private final List<Pattern> excludedArtifactPatterns = Collections.synchronizedList(new ArrayList<>());
+
+    /** Whether to skip optional dependencies during resolution. */
     private boolean skipOptionalDependencies = true;
+
+    /** Whether to skip test-scoped dependencies during resolution. */
     private boolean skipTestDependencies = true;
 
+    /** Dependency resolver instance, updated when configuration changes. */
     protected volatile DependencyResolver dependencyResolver;
 
+    /** Handler for applying package relocations to dependencies. */
     private volatile RelocationHandler relocationHandler;
 
+    /** Global isolated class loader for dependencies that should be shared but isolated from main classpath. */
     protected final IsolatedClassLoader globalIsolatedClassLoader = new IsolatedClassLoader();
+
+    /** Map of named isolated class loaders created for specific use cases. */
     protected final Map<String, IsolatedClassLoader> isolatedClassLoaders = new ConcurrentHashMap<>();
 
+    /** Map tracking all successfully loaded dependencies and their local file paths. */
     protected final Map<Dependency, Path> loadedDependencies = new ConcurrentHashMap<>();
 
     /**
@@ -881,6 +907,8 @@ public abstract class LibraryManager {
         private final int isolatedClassLoaderCount;
 
         /**
+         * Creates a new LibraryManagerStats instance.
+         *
          * @param repositoryCount the number of configured repositories
          * @param loadedDependencyCount the number of loaded dependencies
          * @param isolatedClassLoaderCount the number of created isolated class loaders

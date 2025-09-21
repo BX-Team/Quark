@@ -12,6 +12,9 @@ import static java.util.Objects.requireNonNull;
  * and provides a consistent interface for repository access.</p>
  */
 public class Repository {
+    /**
+     * The base URL of the repository, normalized to not end with a slash.
+     */
     protected final String baseUrl;
 
     /**

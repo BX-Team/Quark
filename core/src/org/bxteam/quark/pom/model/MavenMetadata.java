@@ -21,6 +21,16 @@ public final class MavenMetadata {
     private final @Nullable String release;
     private final @NotNull List<String> versions;
 
+    /**
+     * Constructs a new MavenMetadata instance.
+     *
+     * @param groupId the group ID of the artifact, or null if not specified
+     * @param artifactId the artifact ID, or null if not specified
+     * @param latest the latest version string, or null if not specified
+     * @param release the release version string, or null if not specified
+     * @param versions the list of available versions, must not be null
+     * @throws NullPointerException if versions is null
+     */
     public MavenMetadata(@Nullable String groupId, @Nullable String artifactId, @Nullable String latest, @Nullable String release, @NotNull List<String> versions) {
         versions = List.copyOf(versions);
         this.groupId = groupId;
