@@ -11,6 +11,6 @@ repositories {
 dependencies {
     api(project(":quark-core"))
 
-    compileOnly("net.fabricmc:fabric-loader:0.14.21")
-    compileOnly("org.slf4j:slf4j-api:2.0.5")
+    compileOnly("net.fabricmc:fabric-loader:0.14.25")
+    compileOnly("org.slf4j:slf4j-api:2.0.17")
 }
