@@ -11,11 +11,4 @@ public class QuarkGradleExamplePlugin extends JavaPlugin {
         libraryManager = new BukkitLibraryManager(this);
         libraryManager.loadFromGradle();
     }
-
-    @Override
-    public void onDisable() {
-        if (libraryManager != null) {
-            libraryManager.close();
-        }
-    }
 }
