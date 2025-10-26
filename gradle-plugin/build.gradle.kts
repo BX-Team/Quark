@@ -12,7 +12,7 @@ repositories {
 }
 
 dependencies {
-    compileOnly("com.github.johnrengelman.shadow:com.github.johnrengelman.shadow.gradle.plugin:8.1.1")
+    compileOnly("com.gradleup.shadow:com.gradleup.shadow.gradle.plugin:9.0.0")
 }
 
 sourceSets {

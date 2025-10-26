@@ -7,6 +7,7 @@ import org.gradle.api.artifacts.Configuration
 import org.gradle.api.artifacts.repositories.MavenArtifactRepository
 import org.gradle.api.tasks.bundling.Jar
 import org.gradle.kotlin.dsl.withType
+
 import java.io.File
 
 /**
@@ -18,7 +19,7 @@ private const val QUARK_VERSION: String = "1.2.0"
 class QuarkPlugin : Plugin<Project> {
     override fun apply(project: Project) {
         if (!project.plugins.hasPlugin("com.github.johnrengelman.shadow")) {
-            error("ShadowJar is required by the Quark Gradle plugin. Please add ShadowJar v8.1.1+")
+            error("ShadowJar is required by the Quark Gradle plugin. Please add ShadowJar v9.0.0+")
         }
 
         project.extensions.create("quark", QuarkExtension::class.java)
@@ -36,6 +37,11 @@ class QuarkPlugin : Plugin<Project> {
         project.afterEvaluate {
             configurations.getByName("compileOnly").extendsFrom(quark)
             project.addQuarkDependencies()
+
+            val extension = project.quark
+            if (extension.relocations.isNotEmpty()) {
+                project.configureShadowJarRelocations(extension)
+            }
         }
 
         val outputDir = project.layout.buildDirectory.asFile.get().resolve("quark")
@@ -49,7 +55,7 @@ class QuarkPlugin : Plugin<Project> {
                 project.createRepositoriesFile(outputDir, extension)
 
                 if (extension.relocations.isNotEmpty()) {
-                    project.createRelocationsFile(outputDir, extension)
+                    createRelocationsFile(outputDir, extension)
                 }
 
                 createDependenciesFile(outputDir, quark)
@@ -74,20 +80,25 @@ class QuarkPlugin : Plugin<Project> {
 }
 
 /**
- * Generates the relocations.txt file
+ * Configures ShadowJar tasks with relocation rules
  */
-private fun Project.createRelocationsFile(outputDir: File, extension: QuarkExtension) {
-    val relocationsFile = outputDir.resolve("relocations.txt")
+private fun Project.configureShadowJarRelocations(extension: QuarkExtension) {
     project.plugins.withId("com.github.johnrengelman.shadow") {
-        val relocationRules = mutableListOf<String>()
         project.tasks.withType<ShadowJar>().configureEach {
             extension.relocations.forEach {
-                relocationRules.add("${it.pattern}:${it.newPattern}")
                 relocate(it.pattern, it.newPattern)
             }
         }
-        relocationsFile.writeText(relocationRules.joinToString("\n"))
     }
+}
+
+/**
+ * Generates the relocations.txt file
+ */
+private fun createRelocationsFile(outputDir: File, extension: QuarkExtension) {
+    val relocationsFile = outputDir.resolve("relocations.txt")
+    val relocationRules = extension.relocations.map { "${it.pattern}:${it.newPattern}" }
+    relocationsFile.writeText(relocationRules.joinToString("\n"))
 }
 
 /**
