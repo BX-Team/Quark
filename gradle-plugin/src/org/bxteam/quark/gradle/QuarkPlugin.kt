@@ -59,9 +59,6 @@ class QuarkPlugin : Plugin<Project> {
                 }
 
                 createDependenciesFile(outputDir, quark)
-
-                val configFile = outputDir.resolve("quark.properties")
-                configFile.writeText(extension.toPropertiesFile())
             }
         }
 
@@ -72,7 +69,6 @@ class QuarkPlugin : Plugin<Project> {
                 include("dependencies.txt")
                 include("relocations.txt")
                 include("repositories.txt")
-                include("quark.properties")
                 into("quark")
             }
         }

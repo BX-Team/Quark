@@ -60,12 +60,6 @@ internal class BasicRepositoryDsl : RepositoryDsl {
  */
 open class QuarkExtension {
     /**
-     * The subfolder in the plugin directory where libraries
-     * should be installed
-     */
-    var libsFolder: String = "libs"
-
-    /**
      * The platform type to use (e.g., "paper", "bukkit", "velocity", etc.)
      */
     var platform: String? = null
@@ -113,22 +107,5 @@ open class QuarkExtension {
      */
     fun relocate(pattern: String, newPattern: String) {
         _relocations.add(Relocation(pattern, newPattern))
-    }
-
-    /**
-     * A fancy toString implementation
-     */
-    override fun toString(): String {
-        return "QuarkExtension(libsFolder='$libsFolder', includeProjectRepositories=$includeProjectRepositories, repositories=$repositories)"
-    }
-
-    /**
-     * Generates the content of the properties file of this extension
-     */
-    internal fun toPropertiesFile(): String {
-        return buildString {
-            appendLine("libs-folder=${libsFolder}")
-            platform?.let { appendLine("platform=${it}") }
-        }.trimEnd()
     }
 }

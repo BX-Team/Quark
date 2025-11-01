@@ -25,12 +25,10 @@ public class GradleMetadataLoader {
     private static final String DEPENDENCIES_FILE = "quark/dependencies.txt";
     private static final String REPOSITORIES_FILE = "quark/repositories.txt";
     private static final String RELOCATIONS_FILE = "quark/relocations.txt";
-    private static final String PROPERTIES_FILE = "quark/quark.properties";
 
     private final List<Dependency> dependencies;
     private final List<String> repositories;
     private final List<Relocation> relocations;
-    private final Properties properties;
 
     /**
      * Creates a new metadata loader and loads all metadata from resources.
@@ -44,7 +42,6 @@ public class GradleMetadataLoader {
         this.dependencies = loadDependencies(resourceProvider);
         this.repositories = loadRepositories(resourceProvider);
         this.relocations = loadRelocations(resourceProvider);
-        this.properties = loadProperties(resourceProvider);
     }
 
     /**
@@ -75,16 +72,6 @@ public class GradleMetadataLoader {
     @NotNull
     public List<Relocation> getRelocations() {
         return Collections.unmodifiableList(relocations);
-    }
-
-    /**
-     * Gets the libraries folder name from properties.
-     *
-     * @return the libraries folder name, or "libs" as default
-     */
-    @NotNull
-    public String getLibsFolder() {
-        return properties.getProperty("libs-folder", "libs");
     }
 
     /**
@@ -208,29 +195,6 @@ public class GradleMetadataLoader {
         }
 
         return relocs;
-    }
-
-    /**
-     * Loads properties from the quark.properties file.
-     *
-     * @param resourceProvider the resource provider
-     * @return loaded properties
-     */
-    @NotNull
-    private Properties loadProperties(@NotNull ResourceProvider resourceProvider) {
-        Properties props = new Properties();
-        InputStream stream = resourceProvider.getResourceAsStream(PROPERTIES_FILE);
-        if (stream == null) {
-            return props;
-        }
-
-        try {
-            props.load(stream);
-        } catch (IOException e) {
-            throw new GradleMetadataException("Failed to read properties metadata", e);
-        }
-
-        return props;
     }
 
     /**
