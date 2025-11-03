@@ -18,7 +18,7 @@ private const val QUARK_VERSION: String = "1.2.1"
 
 class QuarkPlugin : Plugin<Project> {
     override fun apply(project: Project) {
-        if (!project.plugins.hasPlugin("com.github.johnrengelman.shadow")) {
+        if (!project.plugins.hasPlugin("com.gradleup.shadow")) {
             error("ShadowJar is required by the Quark Gradle plugin. Please add ShadowJar v9.0.0+")
         }
 
@@ -79,7 +79,7 @@ class QuarkPlugin : Plugin<Project> {
  * Configures ShadowJar tasks with relocation rules
  */
 private fun Project.configureShadowJarRelocations(extension: QuarkExtension) {
-    project.plugins.withId("com.github.johnrengelman.shadow") {
+    project.plugins.withId("com.gradleup.shadow") {
         project.tasks.withType<ShadowJar>().configureEach {
             extension.relocations.forEach {
                 relocate(it.pattern, it.newPattern)
