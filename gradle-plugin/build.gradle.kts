@@ -12,7 +12,7 @@ repositories {
 }
 
 dependencies {
-    compileOnly("com.gradleup.shadow:com.gradleup.shadow.gradle.plugin:9.0.0")
+    compileOnly("com.gradleup.shadow:com.gradleup.shadow.gradle.plugin:9.0.2")
 }
 
 sourceSets {
