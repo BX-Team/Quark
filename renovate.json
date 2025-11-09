@@ -19,7 +19,9 @@
         "net.md-5:bungeecord-api",
         "org.spigotmc:spigot-api",
         "io.papermc.paper:paper-api",
-        "com.velocitypowered:velocity-api"
+        "com.velocitypowered:velocity-api",
+        "net.fabricmc:fabric-loader",
+        "gradle"
       ],
       "enabled": false
     },
