@@ -13,7 +13,7 @@ repositories {
 dependencies {
     compileOnly("org.spigotmc:spigot-api:1.19.4-R0.1-SNAPSHOT")
 
-    // implementation("org.bxteam.quark:bukkit:1.0.0") // <-- uncomment in your project
+    // implementation("org.bxteam.quark:bukkit:1.x.x") // <-- uncomment in your project and set the version
     implementation(project(":quark-bukkit")) // don't use this line in your build file
 }
 

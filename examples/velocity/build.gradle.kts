@@ -12,7 +12,7 @@ repositories {
 dependencies {
     compileOnly("com.velocitypowered:velocity-api:3.4.0-SNAPSHOT")
 
-    // implementation("org.bxteam.quark:velocity:1.0.0") // <-- uncomment in your project
+    // implementation("org.bxteam.quark:velocity:1.x.x") // <-- uncomment in your project and set the version
     implementation(project(":quark-velocity")) // don't use this line in your build file
 }
 

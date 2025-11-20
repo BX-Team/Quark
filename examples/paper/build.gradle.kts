@@ -15,7 +15,7 @@ repositories {
 dependencies {
     compileOnly("io.papermc.paper:paper-api:1.19.4-R0.1-SNAPSHOT")
 
-    // implementation("org.bxteam.quark:paper:1.0.0") // <-- uncomment in your project
+    // implementation("org.bxteam.quark:paper:1.x.x") // <-- uncomment in your project and set the version
     implementation(project(":quark-paper")) // don't use this line in your build file
 }
 

@@ -12,7 +12,7 @@ repositories {
 dependencies {
     compileOnly("net.md-5:bungeecord-api:1.19-R0.1-SNAPSHOT")
 
-    // implementation("org.bxteam.quark:bungee:1.0.0") // <-- uncomment in your project
+    // implementation("org.bxteam.quark:bungee:1.x.x") // <-- uncomment in your project and set the version
     implementation(project(":quark-bungee")) // don't use this line in your build file
 }
 
