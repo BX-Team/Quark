@@ -1,6 +1,6 @@
 plugins {
     id("java-library")
-    id("com.gradleup.shadow") version "9.2.2"
+    id("com.gradleup.shadow") version "9.1.0"
     id("de.eldoria.plugin-yml.bukkit") version "0.7.1"
     id("org.bxteam.quark") // version "1.x.x" // <-- uncomment in your project and set the version
 }

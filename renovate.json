@@ -22,6 +22,7 @@
         "io.papermc.paper:paper-api",
         "org.spongepowered:spongeapi",
         "com.velocitypowered:velocity-api",
+        "com.gradleup.shadow:com.gradleup.shadow.gradle.plugin",
         "gradle"
       ],
       "enabled": false
