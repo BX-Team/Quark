@@ -16,11 +16,12 @@
   "packageRules": [
     {
       "matchPackageNames": [
-        "net.md-5:bungeecord-api",
         "org.spigotmc:spigot-api",
-        "io.papermc.paper:paper-api",
-        "com.velocitypowered:velocity-api",
+        "net.md-5:bungeecord-api",
         "net.fabricmc:fabric-loader",
+        "io.papermc.paper:paper-api",
+        "org.spongepowered:spongeapi",
+        "com.velocitypowered:velocity-api",
         "gradle"
       ],
       "enabled": false

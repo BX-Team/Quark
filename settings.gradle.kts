@@ -10,6 +10,7 @@ setOf(
     "core",
     "fabric",
     "paper",
+    "sponge",
     "velocity"
 ).forEach {
     subProject(it)
