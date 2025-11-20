@@ -14,7 +14,7 @@ import java.io.File
  * Version of Quark to use for the platform dependency.
  * Automatically updated during release process.
  */
-private const val QUARK_VERSION: String = "1.2.1"
+private const val QUARK_VERSION: String = "1.3.0"
 
 class QuarkPlugin : Plugin<Project> {
     override fun apply(project: Project) {
