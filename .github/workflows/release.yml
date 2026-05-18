@@ -32,7 +32,7 @@ jobs:
 
       - name: Build Changelog
         id: github_release
-        uses: mikepenz/release-changelog-builder-action@v6.2.1
+        uses: mikepenz/release-changelog-builder-action@v6.2.2
         with:
           mode: COMMIT
           fromTag: ${{ steps.tag_search.outputs.latest_tag }}
