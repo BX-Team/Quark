@@ -29,13 +29,6 @@ A lightweight, runtime dependency management system for plugins running on Minec
 
 You can find information on how to install and use Quark on our [official website](https://bxteam.org/docs/quark/usage/installing).
 
-## 📦 Examples
-- [Bukkit Example](https://github.com/BX-Team/Quark/tree/master/examples/bukkit)
-- [Bungee Example](https://github.com/BX-Team/Quark/tree/master/examples/bungee)
-- [Gradle Example](https://github.com/BX-Team/Quark/tree/master/examples/gradle)
-- [Paper Example](https://github.com/BX-Team/Quark/tree/master/examples/paper)
-- [Velocity Example](https://github.com/BX-Team/Quark/tree/master/examples/velocity)
-
 ## ⚖️ License ![Static Badge](https://img.shields.io/badge/license-MIT-lightgreen)
 
 Quark is licensed under the MIT License. You can find the license [here](LICENSE).
