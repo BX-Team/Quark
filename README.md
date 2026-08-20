@@ -36,6 +36,6 @@ You can find information on how to install and use Quark on our [official websit
 - [Paper Example](https://github.com/BX-Team/Quark/tree/master/examples/paper)
 - [Velocity Example](https://github.com/BX-Team/Quark/tree/master/examples/velocity)
 
-## ⚖️ License ![Static Badge](https://img.shields.io/badge/license-GPL_3.0-lightgreen)
+## ⚖️ License ![Static Badge](https://img.shields.io/badge/license-MIT-lightgreen)
 
-Quark is licensed under the GNU General Public License v3.0. You can find the license [here](LICENSE).
+Quark is licensed under the MIT License. You can find the license [here](LICENSE).

@@ -39,6 +39,15 @@ publishing {
             artifactId = project.name.removePrefix("quark-")
             version = project.version.toString()
             from(components["java"])
+
+            pom {
+                licenses {
+                    license {
+                        name = "MIT License"
+                        url = "https://opensource.org/licenses/MIT"
+                    }
+                }
+            }
         }
     }
 }
