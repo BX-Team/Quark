@@ -1,5 +1,8 @@
 plugins {
-    `quark-deps`
-    `quark-java`
-    `quark-publish`
+    id("quark.published")
+}
+
+dependencies {
+    compileOnly("org.projectlombok:lombok:1.18.48")
+    annotationProcessor("org.projectlombok:lombok:1.18.48")
 }

@@ -1,11 +1,5 @@
 plugins {
-    `quark-deps`
-    `quark-java`
-    `quark-publish`
-}
-
-repositories {
-    maven("https://repo.spongepowered.org/maven/")
+    id("quark.platform")
 }
 
 dependencies {

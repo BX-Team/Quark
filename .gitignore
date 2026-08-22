@@ -40,3 +40,5 @@ bin/
 
 ### Common working directories ###
 run/
+### Kotlin ###
+.kotlin/

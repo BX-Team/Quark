@@ -1,11 +1,5 @@
 plugins {
-    `quark-deps`
-    `quark-java`
-    `quark-publish`
-}
-
-repositories {
-    maven("https://maven.fabricmc.net")
+    id("quark.platform")
 }
 
 dependencies {
