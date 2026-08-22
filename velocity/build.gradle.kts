@@ -1,11 +1,5 @@
 plugins {
-    `quark-deps`
-    `quark-java`
-    `quark-publish`
-}
-
-repositories {
-    maven("https://repo.papermc.io/repository/maven-public/")
+    id("quark.platform")
 }
 
 dependencies {

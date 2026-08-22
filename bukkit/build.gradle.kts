@@ -1,11 +1,5 @@
 plugins {
-    `quark-deps`
-    `quark-java`
-    `quark-publish`
-}
-
-repositories {
-    maven("https://hub.spigotmc.org/nexus/content/groups/public/")
+    id("quark.platform")
 }
 
 dependencies {
