@@ -1,6 +1,5 @@
 package org.bxteam.quark;
 
-import lombok.Getter;
 import org.bxteam.quark.classloader.IsolatedClassLoader;
 import org.bxteam.quark.dependency.Dependency;
 import org.bxteam.quark.dependency.model.ResolutionResult;
@@ -876,49 +875,30 @@ public abstract class LibraryManager {
 
     /**
      * Represents a dependency with its loaded JAR file path.
+     *
+     * @param dependency the dependency information
+     * @param path the local file system path to the JAR file
      */
-    @Getter
-    public static final class DependencyLoadEntry {
-        private final @NotNull Dependency dependency;
-        private final @NotNull Path path;
-
+    public record DependencyLoadEntry(@NotNull Dependency dependency, @NotNull Path path) {
         /**
          * Creates a new DependencyLoadEntry.
          *
-         * @param dependency the dependency information
-         * @param path the local file system path to the JAR file
          * @throws NullPointerException if any parameter is null
          */
-        public DependencyLoadEntry(@NotNull Dependency dependency, @NotNull Path path) {
+        public DependencyLoadEntry {
             requireNonNull(dependency, "Dependency cannot be null");
             requireNonNull(path, "Path cannot be null");
-            this.dependency = dependency;
-            this.path = path;
         }
     }
 
     /**
      * Contains statistics about the current LibraryManager state.
+     *
+     * @param repositoryCount the number of configured repositories
+     * @param loadedDependencyCount the number of loaded dependencies
+     * @param isolatedClassLoaderCount the number of created isolated class loaders
      */
-    @Getter
-    public static final class LibraryManagerStats {
-        private final int repositoryCount;
-        private final int loadedDependencyCount;
-        private final int isolatedClassLoaderCount;
-
-        /**
-         * Creates a new LibraryManagerStats instance.
-         *
-         * @param repositoryCount the number of configured repositories
-         * @param loadedDependencyCount the number of loaded dependencies
-         * @param isolatedClassLoaderCount the number of created isolated class loaders
-         */
-        public LibraryManagerStats(int repositoryCount, int loadedDependencyCount, int isolatedClassLoaderCount) {
-            this.repositoryCount = repositoryCount;
-            this.loadedDependencyCount = loadedDependencyCount;
-            this.isolatedClassLoaderCount = isolatedClassLoaderCount;
-        }
-
+    public record LibraryManagerStats(int repositoryCount, int loadedDependencyCount, int isolatedClassLoaderCount) {
         /**
          * Returns a string representation of the statistics.
          *

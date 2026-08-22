@@ -1,6 +1,5 @@
 package org.bxteam.quark.util;
 
-import lombok.experimental.UtilityClass;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -8,10 +7,13 @@ import org.jetbrains.annotations.NotNull;
  *
  * <p>This class provides path sanitization for relocation patterns.</p>
  */
-@UtilityClass
-public class StringUtils {
-    private final String BRACE_PLACEHOLDER = "{}";
-    private final String DOT_REPLACEMENT = ".";
+public final class StringUtils {
+    private static final String BRACE_PLACEHOLDER = "{}";
+    private static final String DOT_REPLACEMENT = ".";
+
+    private StringUtils() {
+        throw new UnsupportedOperationException("This class cannot be instantiated");
+    }
 
     /**
      * Replaces all occurrences of "{}" with "." in the provided string.
@@ -23,7 +25,7 @@ public class StringUtils {
      * @throws NullPointerException if input is null
      */
     @NotNull
-    public String sanitizePath(@NotNull String input) {
+    public static String sanitizePath(@NotNull String input) {
         return input.replace(BRACE_PLACEHOLDER, DOT_REPLACEMENT);
     }
 }
