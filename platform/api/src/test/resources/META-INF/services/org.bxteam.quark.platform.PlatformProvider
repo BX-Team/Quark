@@ -1,0 +1,3 @@
+org.bxteam.quark.platform.PlatformDetectTest$LowPriorityProvider
+org.bxteam.quark.platform.PlatformDetectTest$HighPriorityProvider
+org.bxteam.quark.platform.PlatformDetectTest$UnsupportedProvider

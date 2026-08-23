@@ -18,6 +18,7 @@ dependencyResolutionManagement {
 includeBuild("gradle-plugin")
 
 module("quark-common", "common")
+module("quark-platform-api", "platform/api")
 
 setOf(
     "bukkit",
