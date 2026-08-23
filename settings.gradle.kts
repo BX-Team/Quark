@@ -17,6 +17,8 @@ dependencyResolutionManagement {
 
 includeBuild("gradle-plugin")
 
+module("quark-common", "common")
+
 setOf(
     "bukkit",
     "bungee",
@@ -32,4 +34,9 @@ setOf(
 fun subProject(name: String) {
     include(":quark-$name")
     project(":quark-$name").projectDir = file(name)
+}
+
+fun module(name: String, path: String) {
+    include(":$name")
+    project(":$name").projectDir = file(path)
 }
