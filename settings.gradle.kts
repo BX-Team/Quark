@@ -19,14 +19,11 @@ includeBuild("gradle-plugin")
 
 module("quark-common", "common")
 module("quark-platform-api", "platform/api")
+module("quark-dependency", "lib/dependency")
 
 setOf(
     "bukkit",
-    "bungee",
-    "core",
-    "fabric",
     "paper",
-    "sponge",
     "velocity"
 ).forEach {
     subProject(it)
