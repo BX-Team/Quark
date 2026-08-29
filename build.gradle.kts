@@ -11,6 +11,7 @@ val sizeBudget: Configuration by configurations.creating {
 
 dependencies {
     sizeBudget(project(":quark-paper"))
+    sizeBudget(project(":quark-dependency"))
 }
 
 abstract class CheckArtifactSize : DefaultTask() {
