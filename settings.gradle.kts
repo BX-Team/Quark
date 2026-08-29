@@ -26,12 +26,7 @@ setOf(
     "paper",
     "velocity"
 ).forEach {
-    subProject(it)
-}
-
-fun subProject(name: String) {
-    include(":quark-$name")
-    project(":quark-$name").projectDir = file(name)
+    module("quark-$it", "platform/$it")
 }
 
 fun module(name: String, path: String) {
