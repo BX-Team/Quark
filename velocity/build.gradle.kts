@@ -3,7 +3,7 @@ plugins {
 }
 
 dependencies {
-    api(project(":quark-core"))
+    api(project(":quark-dependency"))
 
     compileOnly("com.velocitypowered:velocity-api:3.1.1")
 }
