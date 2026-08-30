@@ -1,11 +1,6 @@
 plugins {
-    id("quark.base")
+    `java-platform`
     `maven-publish`
-}
-
-java {
-    withSourcesJar()
-    withJavadocJar()
 }
 
 publishing {
@@ -14,7 +9,7 @@ publishing {
     publications {
         create<MavenPublication>("maven") {
             artifactId = project.name
-            from(components["java"])
+            from(components["javaPlatform"])
             quarkPom(project)
         }
     }

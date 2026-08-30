@@ -20,6 +20,7 @@ includeBuild("gradle-plugin")
 module("quark-common", "common")
 module("quark-platform-api", "platform/api")
 module("quark-dependency", "lib/dependency")
+module("quark-bom", "bom")
 
 setOf(
     "bukkit",
