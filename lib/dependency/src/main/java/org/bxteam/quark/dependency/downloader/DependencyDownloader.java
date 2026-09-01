@@ -19,6 +19,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
 
@@ -98,6 +99,27 @@ public class DependencyDownloader {
         }
 
         return null;
+    }
+
+    /**
+     * Parses the already downloaded POM of a dependency again, resolving its dependencies against values
+     * inherited from its parent hierarchy.
+     *
+     * @param dependency the dependency whose POM was downloaded by {@link #downloadAndParsePom(Dependency)}
+     * @param inheritedProperties properties of the parent hierarchy
+     * @param inheritedDependencyManagement managed versions of the parent hierarchy
+     * @return the parsed POM information, or null if the POM is not available locally
+     * @throws Exception if parsing fails
+     */
+    @Nullable
+    public PomInfo parsePomWithInheritance(@NotNull Dependency dependency,
+                                           @NotNull Map<String, String> inheritedProperties,
+                                           @NotNull Map<String, String> inheritedDependencyManagement) throws Exception {
+        Path localPomPath = dependency.getPomPath(localRepository);
+        if (!Files.exists(localPomPath)) {
+            return null;
+        }
+        return pomReader.readPom(localPomPath, inheritedProperties, inheritedDependencyManagement);
     }
 
     /**

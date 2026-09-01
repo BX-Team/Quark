@@ -58,14 +58,35 @@ public class PomReader {
      */
     @NotNull
     public PomInfo readPom(@NotNull Path pomFile) throws PomParsingException {
+        return readPom(pomFile, Map.of(), Map.of());
+    }
+
+    /**
+     * Reads a POM file, resolving its dependencies against values inherited from its parent POMs.
+     *
+     * <p>Properties and managed versions declared in the POM itself take precedence over inherited ones.</p>
+     *
+     * @param pomFile the path to the POM file
+     * @param inheritedProperties properties of the parent hierarchy
+     * @param inheritedDependencyManagement managed versions ({@code groupId:artifactId -> version}) of the parent hierarchy
+     * @return the parsed POM information
+     * @throws PomParsingException if parsing fails
+     * @throws NullPointerException if any parameter is null
+     */
+    @NotNull
+    public PomInfo readPom(@NotNull Path pomFile,
+                           @NotNull Map<String, String> inheritedProperties,
+                           @NotNull Map<String, String> inheritedDependencyManagement) throws PomParsingException {
         requireNonNull(pomFile, "POM file cannot be null");
+        requireNonNull(inheritedProperties, "Inherited properties cannot be null");
+        requireNonNull(inheritedDependencyManagement, "Inherited dependency management cannot be null");
 
         if (!Files.exists(pomFile)) {
             throw new PomParsingException("POM file does not exist: " + pomFile);
         }
 
         try (InputStream inputStream = Files.newInputStream(pomFile)) {
-            return readPom(inputStream, pomFile.toString());
+            return readPom(inputStream, pomFile.toString(), inheritedProperties, inheritedDependencyManagement);
         } catch (IOException e) {
             throw new PomParsingException("Failed to read POM file: " + pomFile, e);
         }
@@ -82,6 +103,13 @@ public class PomReader {
      */
     @NotNull
     public PomInfo readPom(@NotNull InputStream inputStream, @NotNull String source) throws PomParsingException {
+        return readPom(inputStream, source, Map.of(), Map.of());
+    }
+
+    @NotNull
+    private PomInfo readPom(@NotNull InputStream inputStream, @NotNull String source,
+                            @NotNull Map<String, String> inheritedProperties,
+                            @NotNull Map<String, String> inheritedDependencyManagement) throws PomParsingException {
         requireNonNull(inputStream, "Input stream cannot be null");
         requireNonNull(source, "Source cannot be null");
 
@@ -89,7 +117,7 @@ public class PomReader {
             DocumentBuilder builder = documentBuilderFactory.newDocumentBuilder();
             Document document = builder.parse(inputStream);
 
-            return parsePomDocument(document, source);
+            return parsePomDocument(document, source, inheritedProperties, inheritedDependencyManagement);
 
         } catch (ParserConfigurationException e) {
             throw new PomParsingException("Failed to create XML parser", e);
@@ -109,7 +137,9 @@ public class PomReader {
      * @throws PomParsingException if parsing fails
      */
     @NotNull
-    private PomInfo parsePomDocument(@NotNull Document document, @NotNull String source) throws PomParsingException {
+    private PomInfo parsePomDocument(@NotNull Document document, @NotNull String source,
+                                     @NotNull Map<String, String> inheritedProperties,
+                                     @NotNull Map<String, String> inheritedDependencyManagement) throws PomParsingException {
         XPath xpath = xPathFactory.newXPath();
 
         try {
@@ -130,13 +160,16 @@ public class PomReader {
                 throw new PomParsingException("No artifactId found in POM: " + source);
             }
 
-            Map<String, String> properties = extractProperties(xpath, document);
+            Map<String, String> properties = new HashMap<>(inheritedProperties);
+            properties.putAll(extractProperties(xpath, document));
 
             if (groupId != null) properties.put("project.groupId", groupId);
             if (artifactId != null) properties.put("project.artifactId", artifactId);
             if (version != null) properties.put("project.version", version);
 
-            Map<String, String> dependencyManagement = extractDependencyManagement(xpath, document, properties);
+            Map<String, String> dependencyManagement = new HashMap<>();
+            inheritedDependencyManagement.forEach((key, value) -> dependencyManagement.put(key, resolveProperties(value, properties)));
+            dependencyManagement.putAll(extractDependencyManagement(xpath, document, properties));
 
             List<Dependency> dependencies = extractDependencies(xpath, document, properties, dependencyManagement);
 
@@ -188,7 +221,7 @@ public class PomReader {
     private Map<String, String> extractProperties(@NotNull XPath xpath, @NotNull Document document) throws XPathExpressionException {
         Map<String, String> properties = new HashMap<>();
 
-        NodeList propertyNodes = (NodeList) xpath.evaluate("//properties/*", document, XPathConstants.NODESET);
+        NodeList propertyNodes = (NodeList) xpath.evaluate("/project/properties/*", document, XPathConstants.NODESET);
 
         for (int i = 0; i < propertyNodes.getLength(); i++) {
             Node propertyNode = propertyNodes.item(i);
@@ -217,7 +250,7 @@ public class PomReader {
                                                             @NotNull Map<String, String> properties) throws XPathExpressionException {
         Map<String, String> managedVersions = new HashMap<>();
 
-        NodeList dependencyNodes = (NodeList) xpath.evaluate("//dependencyManagement/dependencies/dependency", document, XPathConstants.NODESET);
+        NodeList dependencyNodes = (NodeList) xpath.evaluate("/project/dependencyManagement/dependencies/dependency", document, XPathConstants.NODESET);
 
         for (int i = 0; i < dependencyNodes.getLength(); i++) {
             Node dependencyNode = dependencyNodes.item(i);
@@ -254,21 +287,10 @@ public class PomReader {
                                                  @NotNull Map<String, String> dependencyManagement) throws XPathExpressionException {
         List<Dependency> dependencies = new ArrayList<>();
 
-        String[] xpathExpressions = {
-                "//dependencies/dependency",
-                "//project/dependencies/dependency",
-                "/project/dependencies/dependency"
-        };
+        // only direct dependencies: not dependencyManagement, profiles or plugin dependencies
+        NodeList dependencyNodes = (NodeList) xpath.evaluate("/project/dependencies/dependency", document, XPathConstants.NODESET);
 
-        NodeList dependencyNodes = null;
-        for (String expression : xpathExpressions) {
-            dependencyNodes = (NodeList) xpath.evaluate(expression, document, XPathConstants.NODESET);
-            if (dependencyNodes.getLength() > 0) {
-                break;
-            }
-        }
-
-        if (dependencyNodes == null || dependencyNodes.getLength() == 0) {
+        if (dependencyNodes.getLength() == 0) {
             return dependencies;
         }
 
