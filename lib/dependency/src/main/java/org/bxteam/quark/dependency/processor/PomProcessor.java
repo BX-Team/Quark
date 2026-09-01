@@ -85,6 +85,15 @@ public class PomProcessor {
 
         PomInfo mergedPomInfo = processParentHierarchy(pomInfo);
 
+        if (pomInfo.hasParent()) {
+            // dependencies may use properties and managed versions declared in the parents
+            PomInfo inherited = downloader.parsePomWithInheritance(
+                    dependency, mergedPomInfo.properties(), mergedPomInfo.dependencyManagement());
+            if (inherited != null) {
+                mergedPomInfo = inherited;
+            }
+        }
+
         List<Dependency> resolvedDependencies = resolveAllDependencies(mergedPomInfo);
 
         return new PomContext(mergedPomInfo, resolvedDependencies);
@@ -150,22 +159,11 @@ public class PomProcessor {
         Map<String, String> mergedDependencyManagement = new HashMap<>();
         Map<String, String> mergedProperties = new HashMap<>();
 
+        // from the topmost parent down to the POM itself, so nearer declarations override inherited ones
         for (int i = pomHierarchy.size() - 1; i >= 0; i--) {
             PomInfo pom = pomHierarchy.get(i);
-
-            Map<String, String> pomProperties = pom.properties();
-            for (Map.Entry<String, String> entry : pomProperties.entrySet()) {
-                mergedProperties.putIfAbsent(entry.getKey(), entry.getValue());
-            }
-
-            Map<String, String> pomDependencyManagement = pom.dependencyManagement();
-            for (Map.Entry<String, String> entry : pomDependencyManagement.entrySet()) {
-                if (i == 0) {
-                    mergedDependencyManagement.put(entry.getKey(), entry.getValue());
-                } else {
-                    mergedDependencyManagement.putIfAbsent(entry.getKey(), entry.getValue());
-                }
-            }
+            mergedProperties.putAll(pom.properties());
+            mergedDependencyManagement.putAll(pom.dependencyManagement());
         }
 
         cache.addGlobalDependencyManagement(mergedDependencyManagement);
