@@ -1,35 +1,16 @@
 {
-  "extends": [
-    "config:recommended",
-    "group:allNonMajor",
-    ":automergeMinor",
-    ":automergePatch"
-  ],
-  "semanticCommitType": "build",
-  "commitMessagePrefix": "chore(deps): ",
-  "labels": [
-    "🔄 dependencies"
-  ],
-  "schedule": [
-    "before 4am on Monday"
-  ],
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["github>BX-Team/.github//renovate/gradle"],
   "packageRules": [
     {
+      "description": "Server APIs and Shadow are compileOnly compatibility floors: raising them drops support for older servers and builds.",
       "matchPackageNames": [
         "org.spigotmc:spigot-api",
-        "net.md-5:bungeecord-api",
-        "net.fabricmc:fabric-loader",
         "io.papermc.paper:paper-api",
-        "org.spongepowered:spongeapi",
         "com.velocitypowered:velocity-api",
-        "com.gradleup.shadow:com.gradleup.shadow.gradle.plugin",
-        "gradle"
+        "com.gradleup.shadow:shadow-gradle-plugin"
       ],
       "enabled": false
-    },
-    {
-      "matchPackageNames": ["**"],
-      "allowedVersions": "!/\\-SNAPSHOT$/"
     }
   ]
 }
