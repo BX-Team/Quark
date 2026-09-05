@@ -1,28 +1,31 @@
-package org.bxteam.quark.velocity;
+package org.bxteam.quark.logging;
 
+import org.apache.logging.log4j.Logger;
 import org.bxteam.quark.common.LogFormat;
 import org.bxteam.quark.common.QuarkLogger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
 
 import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
 
 /**
- * {@link QuarkLogger} on top of the SLF4J logger Velocity gives every plugin.
+ * {@link QuarkLogger} on top of Log4j 2.
  */
-final class Slf4jQuarkLogger implements QuarkLogger {
+public final class Log4jLogger implements QuarkLogger {
     private final Logger logger;
     private final String prefix;
 
-    Slf4jQuarkLogger(@NotNull Logger logger) {
+    /**
+     * @param logger the Log4j logger
+     */
+    public Log4jLogger(@NotNull Logger logger) {
         this(logger, "");
     }
 
-    private Slf4jQuarkLogger(Logger logger, String prefix) {
-        this.logger = logger;
+    private Log4jLogger(Logger logger, String prefix) {
+        this.logger = requireNonNull(logger, "Logger cannot be null");
         this.prefix = prefix;
     }
 
@@ -55,6 +58,14 @@ final class Slf4jQuarkLogger implements QuarkLogger {
     @Override
     @NotNull
     public QuarkLogger prefixed(@NotNull String prefix) {
-        return new Slf4jQuarkLogger(logger, this.prefix + "[" + requireNonNull(prefix, "Prefix cannot be null") + "] ");
+        return new Log4jLogger(logger, this.prefix + "[" + requireNonNull(prefix, "Prefix cannot be null") + "] ");
+    }
+
+    /**
+     * @return the underlying Log4j logger
+     */
+    @NotNull
+    public Logger delegate() {
+        return logger;
     }
 }

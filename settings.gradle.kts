@@ -16,6 +16,7 @@ dependencyResolutionManagement {
 module("quark-common", "common")
 module("quark-platform-api", "platform/api")
 module("quark-dependency", "lib/dependency")
+module("quark-logger", "lib/logger")
 module("quark-bom", "bom")
 module("quark-gradle-plugin", "gradle/plugin")
 
