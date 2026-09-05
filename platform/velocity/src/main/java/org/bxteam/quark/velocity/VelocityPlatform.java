@@ -5,6 +5,7 @@ import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.util.ProxyVersion;
 import org.bxteam.quark.common.QuarkLogger;
 import org.bxteam.quark.common.SemanticVersion;
+import org.bxteam.quark.logging.Slf4jLogger;
 import org.bxteam.quark.platform.Platform;
 import org.bxteam.quark.platform.PlatformType;
 import org.bxteam.quark.platform.PlatformVersion;
@@ -40,7 +41,7 @@ public class VelocityPlatform implements Platform {
         requireNonNull(server, "Server cannot be null");
         requireNonNull(plugin, "Plugin cannot be null");
         this.dataDirectory = requireNonNull(dataDirectory, "Data directory cannot be null");
-        this.logger = new Slf4jQuarkLogger(requireNonNull(logger, "Logger cannot be null"));
+        this.logger = new Slf4jLogger(requireNonNull(logger, "Logger cannot be null"));
         this.scheduler = new VelocityScheduler(server, plugin);
         this.version = detectVersion(server.getVersion());
     }
