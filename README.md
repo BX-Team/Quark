@@ -16,6 +16,9 @@ A lightweight, runtime dependency management system for plugins running on Minec
 
 </div>
 
+> [!NOTE]
+> New version 2.0.0 coming soon with new features for your plugins. Stay tuned!
+
 ## ⚙️ Features
 
 - **🚀 Runtime Dependency Loading** - Download and load Maven dependencies at runtime without build-time configuration
