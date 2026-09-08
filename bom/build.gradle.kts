@@ -12,6 +12,7 @@ dependencies {
         api(project(":quark-logger"))
         api(project(":quark-update"))
         api(project(":quark-bukkit"))
+        api(project(":quark-bungee"))
         api(project(":quark-paper"))
         api(project(":quark-velocity"))
     }
