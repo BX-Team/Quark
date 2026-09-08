@@ -23,6 +23,7 @@ module("quark-gradle-plugin", "gradle/plugin")
 
 setOf(
     "bukkit",
+    "bungee",
     "paper",
     "velocity"
 ).forEach {
