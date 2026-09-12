@@ -3,6 +3,8 @@ package org.bxteam.quark.platform;
 import org.jetbrains.annotations.NotNull;
 
 import java.time.Duration;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
 /**
@@ -59,6 +61,61 @@ public interface Scheduler {
      */
     @NotNull
     TaskHandle repeating(@NotNull Runnable task, @NotNull Duration delay, @NotNull Duration period);
+
+    /**
+     * Runs the task off the server thread after a delay.
+     *
+     * @param task the task
+     * @param delay the delay
+     * @return the task handle
+     */
+    @NotNull
+    TaskHandle asyncLater(@NotNull Runnable task, @NotNull Duration delay);
+
+    /**
+     * Runs the task off the server thread repeatedly until cancelled.
+     *
+     * @param task the task
+     * @param delay the delay before the first run
+     * @param period the time between runs
+     * @return the task handle
+     */
+    @NotNull
+    TaskHandle asyncRepeating(@NotNull Runnable task, @NotNull Duration delay, @NotNull Duration period);
+
+    /**
+     * Computes a value on the sync thread, e.g. to read world state from an async task.
+     *
+     * @param task the computation
+     * @param <T> the result type
+     * @return a future completed with the result, or exceptionally if the task throws or is cancelled
+     */
+    @NotNull
+    default <T> CompletableFuture<T> callSync(@NotNull Callable<T> task) {
+        CompletableFuture<T> future = new CompletableFuture<>();
+        sync(() -> {
+            try {
+                future.complete(task.call());
+            } catch (Throwable t) {
+                future.completeExceptionally(t);
+            }
+        });
+        return future;
+    }
+
+    /**
+     * Whether the current thread is the sync thread (see class description). Always false on proxies,
+     * which have no such thread.
+     *
+     * @return true on the main thread (Bukkit, Paper) or the global region thread (Folia)
+     */
+    boolean isSyncThread();
+
+    /**
+     * Cancels every task this scheduler started for the plugin. On Folia, tasks bound to an entity or a
+     * location are not covered, cancel them through their handles.
+     */
+    void cancelAll();
 
     /**
      * Bridge for library modules that accept a plain {@link Executor}: every submitted task

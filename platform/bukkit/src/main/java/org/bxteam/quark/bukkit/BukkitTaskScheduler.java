@@ -49,6 +49,29 @@ public class BukkitTaskScheduler implements Scheduler {
                 Ticks.of(delay), Ticks.of(period)));
     }
 
+    @Override
+    @NotNull
+    public TaskHandle asyncLater(@NotNull Runnable task, @NotNull Duration delay) {
+        return handle(Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, requireNonNull(task, "Task cannot be null"), Ticks.of(delay)));
+    }
+
+    @Override
+    @NotNull
+    public TaskHandle asyncRepeating(@NotNull Runnable task, @NotNull Duration delay, @NotNull Duration period) {
+        return handle(Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, requireNonNull(task, "Task cannot be null"),
+                Ticks.of(delay), Ticks.of(period)));
+    }
+
+    @Override
+    public boolean isSyncThread() {
+        return Bukkit.isPrimaryThread();
+    }
+
+    @Override
+    public void cancelAll() {
+        Bukkit.getScheduler().cancelTasks(plugin);
+    }
+
     private static TaskHandle handle(BukkitTask task) {
         return new TaskHandle() {
             @Override
