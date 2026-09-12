@@ -52,6 +52,28 @@ public class BungeeTaskScheduler implements Scheduler {
                 delay.toMillis(), period.toMillis(), TimeUnit.MILLISECONDS));
     }
 
+    @Override
+    @NotNull
+    public TaskHandle asyncLater(@NotNull Runnable task, @NotNull Duration delay) {
+        return later(task, delay);
+    }
+
+    @Override
+    @NotNull
+    public TaskHandle asyncRepeating(@NotNull Runnable task, @NotNull Duration delay, @NotNull Duration period) {
+        return repeating(task, delay, period);
+    }
+
+    @Override
+    public boolean isSyncThread() {
+        return false;
+    }
+
+    @Override
+    public void cancelAll() {
+        plugin.getProxy().getScheduler().cancel(plugin);
+    }
+
     private static TaskHandle handle(ScheduledTask task) {
         // the BungeeCord API cannot tell whether a task was cancelled, so the handle remembers it
         AtomicBoolean cancelled = new AtomicBoolean();

@@ -8,6 +8,8 @@ import org.bxteam.quark.platform.TaskHandle;
 import org.jetbrains.annotations.NotNull;
 
 import java.time.Duration;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 import static java.util.Objects.requireNonNull;
@@ -19,6 +21,8 @@ import static java.util.Objects.requireNonNull;
 final class VelocityScheduler implements Scheduler {
     private final ProxyServer server;
     private final Object plugin;
+    /** Tasks started through this scheduler, for {@link #cancelAll()}; the Velocity API has no per-plugin cancel. */
+    private final Set<ScheduledTask> tasks = ConcurrentHashMap.newKeySet();
 
     VelocityScheduler(@NotNull ProxyServer server, @NotNull Object plugin) {
         this.server = server;
@@ -54,7 +58,32 @@ final class VelocityScheduler implements Scheduler {
                 .schedule());
     }
 
-    private static TaskHandle handle(ScheduledTask task) {
+    @Override
+    @NotNull
+    public TaskHandle asyncLater(@NotNull Runnable task, @NotNull Duration delay) {
+        return later(task, delay);
+    }
+
+    @Override
+    @NotNull
+    public TaskHandle asyncRepeating(@NotNull Runnable task, @NotNull Duration delay, @NotNull Duration period) {
+        return repeating(task, delay, period);
+    }
+
+    @Override
+    public boolean isSyncThread() {
+        return false;
+    }
+
+    @Override
+    public void cancelAll() {
+        tasks.forEach(ScheduledTask::cancel);
+        tasks.clear();
+    }
+
+    private TaskHandle handle(ScheduledTask task) {
+        tasks.removeIf(existing -> existing.status() != TaskStatus.SCHEDULED);
+        tasks.add(task);
         return new TaskHandle() {
             @Override
             public void cancel() {
