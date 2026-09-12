@@ -17,6 +17,11 @@ fun PublishingExtension.quarkRepository(project: Project) {
                 password = System.getenv("REPO_PASSWORD")
             }
         }
+        // build-local repository, used by the Gradle plugin's functional tests
+        maven {
+            name = "buildLocal"
+            url = project.rootProject.layout.buildDirectory.dir("local-repo").get().asFile.toURI()
+        }
     }
 }
 
