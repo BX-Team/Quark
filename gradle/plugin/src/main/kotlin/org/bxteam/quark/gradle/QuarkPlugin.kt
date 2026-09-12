@@ -1,6 +1,10 @@
 package org.bxteam.quark.gradle
 
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
+import org.bxteam.quark.gradle.devserver.DevLibrary
+import org.bxteam.quark.gradle.devserver.DevServerSpec
+import org.bxteam.quark.gradle.devserver.MinecraftVersions
+import org.bxteam.quark.gradle.devserver.RunDevServer
 import org.gradle.api.GradleException
 import org.gradle.api.Plugin
 import org.gradle.api.Project
@@ -9,6 +13,8 @@ import org.gradle.api.artifacts.repositories.MavenArtifactRepository
 import org.gradle.api.file.DuplicatesStrategy
 import org.gradle.api.plugins.JavaPlugin
 import org.gradle.api.tasks.SourceSetContainer
+import org.gradle.jvm.toolchain.JavaLanguageVersion
+import org.gradle.jvm.toolchain.JavaToolchainService
 import org.gradle.kotlin.dsl.named
 import org.gradle.kotlin.dsl.register
 import org.gradle.kotlin.dsl.withType
@@ -18,7 +24,8 @@ import org.gradle.kotlin.dsl.withType
  *
  * - adds the `quark` configuration for dependencies downloaded at runtime and writes them, with repositories
  *   and relocations, to the `META-INF/quark/manifest` resource;
- * - adds `repo.bxteam.org` and the Quark BOM, but no Quark modules: add the ones you need yourself;
+ * - adds `repo.bxteam.org`, the Quark BOM, the adapter of `quark.platform` and the modules listed in
+ *   `quark.modules`;
  * - relocates Quark itself to `<group>.libs.quark` in the shaded JAR, plus your `relocate(...)` rules.
  */
 class QuarkPlugin : Plugin<Project> {
@@ -27,6 +34,7 @@ class QuarkPlugin : Plugin<Project> {
             repositories.convention(listOf(GOOGLE_MAVEN_CENTRAL_MIRROR))
             includeProjectRepositories.convention(false)
             relocations.convention(emptyList())
+            modules.convention(emptySet())
             relocateQuark.convention(true)
             quarkPackage.convention(project.provider { defaultQuarkPackage(project) })
         }
@@ -45,6 +53,7 @@ class QuarkPlugin : Plugin<Project> {
                 JavaPlugin.IMPLEMENTATION_CONFIGURATION_NAME,
                 project.dependencies.platform("org.bxteam.quark:quark-bom:$QUARK_VERSION")
             )
+            addQuarkModules(project, extension)
 
             val generateManifest = project.tasks.register<GenerateQuarkManifest>("generateQuarkManifest") {
                 group = "build"
@@ -73,6 +82,8 @@ class QuarkPlugin : Plugin<Project> {
             project.extensions.getByType(SourceSetContainer::class.java).named("main") {
                 resources.srcDir(generateManifest.map { it.outputDirectory })
             }
+
+            registerDevServers(project, extension, quark)
         }
 
         project.afterEvaluate {
@@ -83,6 +94,80 @@ class QuarkPlugin : Plugin<Project> {
                 )
             }
             configureShadowJar(project, extension)
+        }
+    }
+
+    /**
+     * The adapter of `quark.platform` plus `quark.modules`, added lazily so the `quark { }` block can come
+     * after the plugins block. Versions come from the BOM.
+     */
+    private fun addQuarkModules(project: Project, extension: QuarkExtension) {
+        val artifacts = extension.platform.map { listOf(it.adapterArtifactId) }.orElse(emptyList())
+            .zip(extension.modules) { adapter, modules -> adapter + modules.sortedBy { it.ordinal }.map { it.artifactId } }
+
+        project.configurations.named(JavaPlugin.IMPLEMENTATION_CONFIGURATION_NAME) {
+            dependencies.addAllLater(artifacts.map { ids -> ids.map { project.dependencies.create("org.bxteam.quark:$it") } })
+        }
+    }
+
+    private fun registerDevServers(project: Project, extension: QuarkExtension, quark: org.gradle.api.NamedDomainObjectProvider<org.gradle.api.artifacts.Configuration>) {
+        val toolchains = project.extensions.getByType(JavaToolchainService::class.java)
+        val serverJarCache = project.gradle.gradleUserHomeDir.resolve("caches/quark/dev-servers")
+        val libraries = quark.flatMap { configuration ->
+            configuration.incoming.artifacts.resolvedArtifacts.map { artifacts ->
+                artifacts.mapNotNull { artifact ->
+                    val id = artifact.id.componentIdentifier as? ModuleComponentIdentifier ?: return@mapNotNull null
+                    DevLibrary(id.group, id.module, id.version, artifact.file)
+                }
+            }
+        }
+
+        extension.devServers.all {
+            val spec = this
+            spec.noGui.convention(true)
+            spec.acceptEula.convention(false)
+            spec.maxMemory.convention("2G")
+            spec.build.convention("latest")
+            spec.perVersionFolder.convention(false)
+            spec.runDirectory.convention(project.layout.projectDirectory.dir(project.provider {
+                val type = spec.type.orNull ?: extension.platform.orNull?.defaultServerType
+                when {
+                    spec.name != DevServerSpec.DEFAULT -> "run/${spec.name}"
+                    spec.perVersionFolder.get() -> "run/${spec.version.getOrElse("unknown")}/${type?.name?.lowercase() ?: "server"}"
+                    else -> "run/${type?.name?.lowercase() ?: "server"}"
+                }
+            }))
+            spec.inputJar.convention(project.layout.file(project.provider {
+                project.tasks.withType(ShadowJar::class.java).findByName("shadowJar")?.archiveFile?.get()?.asFile
+            }))
+
+            project.tasks.register(spec.taskName, RunDevServer::class.java) {
+                description = "Runs the dev server '${spec.name}' with this plugin"
+                serverName.set(spec.name)
+                serverType.set(spec.type)
+                platform.set(extension.platform)
+                serverVersion.set(spec.version)
+                serverBuild.set(spec.build)
+                maxMemory.set(spec.maxMemory)
+                noGui.set(spec.noGui)
+                acceptEula.set(spec.acceptEula)
+                pluginSources.set(spec.pluginSources)
+                pluginJar.set(spec.inputJar)
+                runDirectory.set(spec.runDirectory)
+                this.serverJarCache.set(serverJarCache)
+                quarkLibraries.set(libraries)
+
+                // the Shadow JAR quark relocates is what the server must load, not the plain jar
+                dependsOn(project.tasks.withType(ShadowJar::class.java).matching { it.name == "shadowJar" })
+
+                val javaVersion = spec.javaVersion.orElse(spec.version.map { version ->
+                    val type = spec.type.orNull ?: extension.platform.orNull?.defaultServerType ?: ServerType.PAPER
+                    MinecraftVersions.requiredJava(type, version)
+                })
+                javaLauncher.set(toolchains.launcherFor {
+                    languageVersion.set(javaVersion.map { JavaLanguageVersion.of(it) })
+                })
+            }
         }
     }
 

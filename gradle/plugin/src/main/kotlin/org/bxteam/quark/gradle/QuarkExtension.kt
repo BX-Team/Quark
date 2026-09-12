@@ -1,9 +1,14 @@
 package org.bxteam.quark.gradle
 
+import org.bxteam.quark.gradle.devserver.DevServerSpec
 import org.gradle.api.Action
+import org.gradle.api.NamedDomainObjectContainer
+import org.gradle.api.model.ObjectFactory
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Property
+import org.gradle.api.provider.SetProperty
 import java.io.Serializable
+import javax.inject.Inject
 
 internal const val GOOGLE_MAVEN_CENTRAL_MIRROR = "https://maven-central.storage-download.googleapis.com/maven2/"
 
@@ -32,14 +37,85 @@ interface RepositoryDsl {
  *
  * ```kotlin
  * quark {
+ *     platform = ServerPlatform.PAPER
+ *     modules(QuarkModule.DEPENDENCY, QuarkModule.UPDATE)
+ *
  *     repositories {
  *         includeProjectRepositories()
  *     }
  *     relocate("com.google.gson", "my.plugin.libs.gson")
+ *
+ *     devServer {
+ *         version = "1.21.8"
+ *         acceptEula()
+ *     }
  * }
  * ```
  */
-abstract class QuarkExtension {
+abstract class QuarkExtension @Inject constructor(objects: ObjectFactory) {
+    /**
+     * The platform the plugin targets. Adds its Quark adapter (e.g. `quark-paper`) to `implementation` and selects
+     * the default server type of dev servers. Optional: without it no adapter is added.
+     */
+    abstract val platform: Property<ServerPlatform>
+
+    /**
+     * Optional Quark modules added to `implementation`, in the version of this plugin.
+     */
+    abstract val modules: SetProperty<QuarkModule>
+
+    /**
+     * Adds Quark modules, e.g. `modules(QuarkModule.DEPENDENCY, QuarkModule.CONFIG)`.
+     */
+    fun modules(vararg modules: QuarkModule) {
+        this.modules.addAll(*modules)
+    }
+
+    /**
+     * Adds Quark modules by name, e.g. `modules 'dependency', 'update'` in the Groovy DSL.
+     */
+    fun modules(vararg names: String) {
+        modules.addAll(names.map { QuarkModule.of(it) })
+    }
+
+    /**
+     * Dev servers. Each entry registers a `run<Name>Server` task, the entry `default` registers `runServer`.
+     * Without entries no task is registered.
+     */
+    val devServers: NamedDomainObjectContainer<DevServerSpec> = objects.domainObjectContainer(DevServerSpec::class.java)
+
+    /**
+     * Sets [platform] by name, e.g. `platform 'paper'` in the Groovy DSL.
+     */
+    fun platform(name: String) {
+        platform.set(ServerPlatform.of(name))
+    }
+
+    /**
+     * Sets [platform].
+     */
+    fun platform(value: ServerPlatform) {
+        platform.set(value)
+    }
+
+    /**
+     * Configures the dev server named `default`, run with the `runServer` task.
+     */
+    fun devServer(configure: Action<DevServerSpec>) {
+        if (DevServerSpec.DEFAULT in devServers.names) {
+            devServers.named(DevServerSpec.DEFAULT, configure)
+        } else {
+            devServers.register(DevServerSpec.DEFAULT, configure)
+        }
+    }
+
+    /**
+     * Configures the dev servers.
+     */
+    fun devServers(configure: Action<NamedDomainObjectContainer<DevServerSpec>>) {
+        configure.execute(devServers)
+    }
+
     /**
      * Repositories used to download dependencies at runtime. Defaults to the Google Maven Central mirror;
      * a `repositories { }` block replaces the default.

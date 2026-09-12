@@ -3,12 +3,33 @@ plugins {
     id("com.gradle.plugin-publish") version "2.2.1"
 }
 
-// The plugin keeps the group it was first published with on the Gradle Plugin Portal.
 group = "org.bxteam"
 description = "Gradle plugin for Quark: runtime dependency manifest, relocations and Quark BOM"
 
+val testShadow: Configuration by configurations.creating
+
 dependencies {
     compileOnly("com.gradleup.shadow:shadow-gradle-plugin:9.1.0")
+    testShadow("com.gradleup.shadow:shadow-gradle-plugin:9.1.0")
+
+    testImplementation(gradleTestKit())
+    testImplementation(platform("org.junit:junit-bom:5.13.4"))
+    testImplementation("org.junit.jupiter:junit-jupiter")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+}
+
+tasks.pluginUnderTestMetadata {
+    pluginClasspath.from(testShadow)
+}
+
+tasks.test {
+    useJUnitPlatform()
+    dependsOn(
+        listOf("bom", "common", "platform-api", "dependency", "logger", "update", "bukkit", "bungee", "paper", "velocity")
+            .map { ":quark-$it:publishMavenPublicationToBuildLocalRepository" }
+    )
+    systemProperty("quark.testRepository", rootProject.layout.buildDirectory.dir("local-repo").get().asFile.absolutePath)
+    maxParallelForks = 1
 }
 
 java {
@@ -17,7 +38,6 @@ java {
     }
 }
 
-// Version of the Quark libraries the plugin adds the BOM for: always the version it was built with.
 val generateQuarkVersion = tasks.register("generateQuarkVersion") {
     val outputDir = layout.buildDirectory.dir("generated/quark-version")
     val quarkVersion = project.version.toString()
@@ -65,6 +85,14 @@ gradlePlugin {
             description = "Runtime dependency manifest, relocations and Quark BOM for Minecraft server plugins"
             implementationClass = "org.bxteam.quark.gradle.QuarkPlugin"
             tags = listOf("maven", "downloader", "runtime dependency", "minecraft", "bukkit", "spigot", "paper", "velocity")
+        }
+        // run-server-plugin moved into Quark; 2.x of its id only applies org.bxteam.quark and points to the migration guide
+        create("runServer") {
+            id = "org.bxteam.runserver"
+            displayName = "RunServer (deprecated, use org.bxteam.quark)"
+            description = "Deprecated: run-server-plugin moved into the Quark Gradle plugin (org.bxteam.quark)"
+            implementationClass = "org.bxteam.quark.gradle.RunServerShimPlugin"
+            tags = listOf("minecraft", "server", "run", "bxteam", "paper", "velocity")
         }
     }
 }
