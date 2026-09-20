@@ -25,7 +25,10 @@ tasks.pluginUnderTestMetadata {
 tasks.test {
     useJUnitPlatform()
     dependsOn(
-        listOf("bom", "common", "platform-api", "dependency", "logger", "update", "bukkit", "bungee", "paper", "velocity")
+        listOf(
+            "bom", "common", "platform-api", "dependency", "logger", "update", "bukkit", "bungee", "paper", "velocity",
+            "config", "config-yaml", "config-validator", "config-serdes-bukkit"
+        )
             .map { ":quark-$it:publishMavenPublicationToBuildLocalRepository" }
     )
     systemProperty("quark.testRepository", rootProject.layout.buildDirectory.dir("local-repo").get().asFile.absolutePath)
