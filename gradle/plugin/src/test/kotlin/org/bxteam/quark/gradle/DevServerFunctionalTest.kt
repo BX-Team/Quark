@@ -246,4 +246,65 @@ class DevServerFunctionalTest {
             runtimeQuarkModules()
         )
     }
+
+    @Test
+    fun `config module adds the yaml format and the serializers of the platform`() {
+        project(
+            """
+            quark {
+                platform = ServerPlatform.PAPER
+                modules(QuarkModule.CONFIG, QuarkModule.CONFIG_VALIDATOR)
+            }
+            """.trimIndent()
+        )
+
+        assertEquals(
+            setOf(
+                "quark-bom", "quark-paper", "quark-bukkit", "quark-platform-api", "quark-common",
+                "quark-config", "quark-config-yaml", "quark-config-validator", "quark-config-serdes-bukkit"
+            ),
+            runtimeQuarkModules()
+        )
+    }
+
+    @Test
+    fun `config module without a bukkit platform adds no serializers`() {
+        project(
+            """
+            quark {
+                platform 'velocity'
+                modules 'config', 'config-validator'
+            }
+            """.trimIndent(),
+            groovy = true
+        )
+
+        assertEquals(
+            setOf("quark-bom", "quark-velocity", "quark-platform-api", "quark-common", "quark-logger", "quark-config", "quark-config-yaml", "quark-config-validator"),
+            runtimeQuarkModules()
+        )
+    }
+
+    @Test
+    fun `shadow jar relocates the snakeyaml-engine probe of the yaml format`() {
+        project(
+            """
+            quark {
+                modules(QuarkModule.CONFIG)
+            }
+            """.trimIndent()
+        )
+
+        runner("shadowJar", "--offline").build()
+
+        val jar = File(projectDir, "build/libs").listFiles()!!.single { it.name.endsWith("-all.jar") }
+        java.util.zip.ZipFile(jar).use { zip ->
+            val entry = zip.getEntry("com/example/libs/quark/config/yaml/YamlFormat.class")
+            requireNotNull(entry) { "YamlFormat was not relocated: ${zip.entries().toList().map { it.name }}" }
+            val bytes = String(zip.getInputStream(entry).readBytes(), Charsets.ISO_8859_1)
+            assertTrue(bytes.contains("com.example.libs.quark.snakeyaml.v2.api.Load"), "probe class literal must be relocated")
+            assertTrue(bytes.contains("org{}snakeyaml{}engine"), "original package must survive relocation")
+            assertFalse(bytes.contains("org/snakeyaml/engine"), "no class reference may be left unrelocated")
+        }
+    }
 }

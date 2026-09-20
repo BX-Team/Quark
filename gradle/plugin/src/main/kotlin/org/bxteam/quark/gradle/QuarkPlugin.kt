@@ -26,7 +26,8 @@ import org.gradle.kotlin.dsl.withType
  *   and relocations, to the `META-INF/quark/manifest` resource;
  * - adds `repo.bxteam.org`, the Quark BOM, the adapter of `quark.platform` and the modules listed in
  *   `quark.modules`;
- * - relocates Quark itself to `<group>.libs.quark` in the shaded JAR, plus your `relocate(...)` rules.
+ * - relocates Quark itself to `<group>.libs.quark` in the shaded JAR (snakeyaml-engine, used by `quark-config-yaml`,
+ *   to `<group>.libs.quark.snakeyaml`), plus your `relocate(...)` rules.
  */
 class QuarkPlugin : Plugin<Project> {
     override fun apply(project: Project) {
@@ -98,12 +99,15 @@ class QuarkPlugin : Plugin<Project> {
     }
 
     /**
-     * The adapter of `quark.platform` plus `quark.modules`, added lazily so the `quark { }` block can come
-     * after the plugins block. Versions come from the BOM.
+     * The adapter of `quark.platform` plus `quark.modules` (and the platform serializers with the config module),
+     * added lazily so the `quark { }` block can come after the plugins block. Versions come from the BOM.
      */
     private fun addQuarkModules(project: Project, extension: QuarkExtension) {
-        val artifacts = extension.platform.map { listOf(it.adapterArtifactId) }.orElse(emptyList())
-            .zip(extension.modules) { adapter, modules -> adapter + modules.sortedBy { it.ordinal }.map { it.artifactId } }
+        val platform = extension.platform.map { listOf(it) }.orElse(emptyList())
+        val artifacts = platform.zip(extension.modules) { platforms, modules ->
+            val serdes = if (QuarkModule.CONFIG in modules) platforms.mapNotNull { it.serdesArtifactId } else emptyList()
+            platforms.map { it.adapterArtifactId } + modules.sortedBy { it.ordinal }.flatMap { it.artifactIds.toList() } + serdes
+        }
 
         project.configurations.named(JavaPlugin.IMPLEMENTATION_CONFIGURATION_NAME) {
             dependencies.addAllLater(artifacts.map { ids -> ids.map { project.dependencies.create("org.bxteam.quark:$it") } })
@@ -194,6 +198,8 @@ class QuarkPlugin : Plugin<Project> {
 
             if (quarkPackage != null) {
                 relocate(QUARK_PACKAGE, quarkPackage)
+                // quark-config-yaml downloads snakeyaml-engine at runtime into the package it was relocated to
+                relocate(SNAKEYAML_ENGINE_PACKAGE, "$quarkPackage.snakeyaml")
             }
             relocations.forEach { relocate(it.pattern, it.newPattern) }
         }
@@ -214,6 +220,7 @@ class QuarkPlugin : Plugin<Project> {
         const val CONFIGURATION_NAME = "quark"
         const val SHADOW_PLUGIN_ID = "com.gradleup.shadow"
         const val QUARK_PACKAGE = "org.bxteam.quark"
+        const val SNAKEYAML_ENGINE_PACKAGE = "org.snakeyaml.engine"
     }
 }
 
