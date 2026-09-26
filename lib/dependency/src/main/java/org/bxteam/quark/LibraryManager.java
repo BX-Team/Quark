@@ -2,6 +2,7 @@ package org.bxteam.quark;
 
 import org.bxteam.quark.classloader.ClassLoaderAppender;
 import org.bxteam.quark.classloader.IsolatedClassLoader;
+import org.bxteam.quark.classloader.ShadowedDependencyDetector;
 import org.bxteam.quark.common.JulLogger;
 import org.bxteam.quark.common.QuarkLogger;
 import org.bxteam.quark.dependency.Dependency;
@@ -104,6 +105,12 @@ public class LibraryManager {
     /** Provider used by {@link #getResourceAsStream(String)}. */
     private final ResourceProvider resourceProvider;
 
+    /** Class loader of the plugin, checked for libraries the server shadows after they are added to the class path. */
+    private final ClassLoader pluginClassLoader;
+
+    /** Dependencies already reported as shadowed, so each is reported once. */
+    private final Set<Dependency> reportedShadowed = ConcurrentHashMap.newKeySet();
+
     /**
      * Creates a new LibraryManager with default libraries directory name.
      *
@@ -125,7 +132,8 @@ public class LibraryManager {
      */
     protected LibraryManager(@NotNull LogAdapter logAdapter, @NotNull Path dataDirectory,
                              @NotNull String librariesDirectoryName) {
-        this(logAdapter, dataDirectory, librariesDirectoryName, null, ResourceProvider.of(LibraryManager.class.getClassLoader()));
+        this(logAdapter, dataDirectory, librariesDirectoryName, null, ResourceProvider.of(LibraryManager.class.getClassLoader()),
+                LibraryManager.class.getClassLoader());
     }
 
     /**
@@ -139,13 +147,16 @@ public class LibraryManager {
                 requireNonNull(builder.dataDirectory, "Data directory must be set"),
                 builder.librariesDirectoryName,
                 builder.appenderFactory,
-                builder.resourceProvider());
+                builder.resourceProvider(),
+                builder.pluginClassLoader != null ? builder.pluginClassLoader : LibraryManager.class.getClassLoader());
     }
 
     private LibraryManager(@NotNull LogAdapter logAdapter, @NotNull Path dataDirectory,
                            @NotNull String librariesDirectoryName,
                            @Nullable Function<LibraryManager, ClassLoaderAppender> appenderFactory,
-                           @NotNull ResourceProvider resourceProvider) {
+                           @NotNull ResourceProvider resourceProvider,
+                           @NotNull ClassLoader pluginClassLoader) {
+        this.pluginClassLoader = pluginClassLoader;
         this.logger = new Logger(requireNonNull(logAdapter, "Log adapter cannot be null"));
         this.dataDirectory = requireNonNull(dataDirectory, "Data directory cannot be null").toAbsolutePath();
         this.resourceProvider = requireNonNull(resourceProvider, "Resource provider cannot be null");
@@ -497,6 +508,7 @@ public class LibraryManager {
                 addToClasspath(entry.path());
                 loadedDependencies.put(entry.dependency(), entry.path());
             }
+            reportShadowedDependencies(loadEntries);
 
             Duration elapsed = Duration.between(startTime, Instant.now());
             logger.info("Loaded " + loadEntries.size() + " dependencies in " + elapsed.toMillis() + " ms");
@@ -554,6 +566,34 @@ public class LibraryManager {
             Duration elapsed = Duration.between(startTime, Instant.now());
             logger.error("Failed to load dependencies into isolated class loader after " + elapsed.toMillis() + " ms: " + e.getMessage());
             throw new LibraryLoadException("Failed to load dependencies", e);
+        }
+    }
+
+    /**
+     * Warns about dependencies whose classes the plugin class loader still finds somewhere else, usually because
+     * the server ships another version of the library in the same package.
+     *
+     * @param loadEntries the dependencies just added to the class path
+     */
+    private void reportShadowedDependencies(@NotNull List<DependencyLoadEntry> loadEntries) {
+        for (DependencyLoadEntry entry : loadEntries) {
+            ShadowedDependencyDetector.Shadowing shadowing;
+            try {
+                shadowing = ShadowedDependencyDetector.find(entry.path(), pluginClassLoader);
+            } catch (RuntimeException e) {
+                logger.debug("Could not check whether " + entry.dependency().toShortString() + " is shadowed: " + e);
+                continue;
+            }
+            if (shadowing == null || !reportedShadowed.add(entry.dependency())) {
+                continue;
+            }
+            Dependency dependency = entry.dependency();
+            String packageName = shadowing.className().contains(".")
+                    ? shadowing.className().substring(0, shadowing.className().lastIndexOf('.')) : shadowing.className();
+            logger.warn(dependency.toShortString() + " is not used: " + shadowing.className() + " is loaded from "
+                    + shadowing.location() + " instead, which probably ships another version. Relocate it to use the version of this "
+                    + "plugin: quark(\"" + dependency.getGroupId() + ":" + dependency.getArtifactId() + ":" + dependency.getVersion()
+                    + "\") { relocate = true } in Gradle, or relocate(\"" + packageName + "\", ...)");
         }
     }
 
