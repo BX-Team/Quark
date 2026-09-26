@@ -28,10 +28,10 @@ import static java.util.Objects.requireNonNull;
 /**
  * Handles runtime relocation of packages in JAR dependencies.
  *
- * <p>This class uses the jar-relocator library to rename packages in JAR files
- * to avoid conflicts between different versions of the same library. It creates
- * an isolated class loader to load the relocation tools and caches relocated
- * JARs to avoid repeated processing.</p>
+ * <p>Packages are renamed by Quark's own relocator ({@code relocation.asm.JarRelocator}) on top of ASM, to avoid
+ * conflicts between different versions of the same library. ASM is downloaded like any dependency into a separate
+ * class loader, which also defines the relocator classes, and relocated JARs are cached to avoid repeated
+ * processing.</p>
  *
  * <p>Relocated JARs are cached per relocation set: the cache key is the dependency coordinates plus a
  * hash of the relocations, see {@link #relocationHash(List)}. The same library relocated into the packages
@@ -39,12 +39,14 @@ import static java.util.Objects.requireNonNull;
  */
 public class RelocationHandler {
     private static final List<Dependency> RELOCATION_DEPENDENCIES = List.of(
-            Dependency.of("org.ow2.asm", "asm", "9.7"),
-            Dependency.of("org.ow2.asm", "asm-commons", "9.7"),
-            Dependency.of("me.lucko", "jar-relocator", "1.7")
+            Dependency.of("org.ow2.asm", "asm", "9.10.1"),
+            Dependency.of("org.ow2.asm", "asm-commons", "9.10.1")
     );
 
-    private static final String JAR_RELOCATOR_CLASS = "me.lucko.jarrelocator.JarRelocator";
+    /** Changes when the output of the relocator changes, so JARs relocated by an older Quark are not reused. */
+    private static final String RELOCATOR_REVISION = "quark-relocator-1";
+
+    private static final String JAR_RELOCATOR_CLASS = RelocatorClassLoader.RELOCATOR_PACKAGE + "JarRelocator";
     private static final String JAR_RELOCATOR_RUN_METHOD = "run";
 
     private final IsolatedClassLoader classLoader;
@@ -125,7 +127,7 @@ public class RelocationHandler {
      */
     @NotNull
     public static String relocationHash(@NotNull List<Relocation> relocations) {
-        StringBuilder canonical = new StringBuilder();
+        StringBuilder canonical = new StringBuilder(RELOCATOR_REVISION).append('\n');
         for (Relocation relocation : requireNonNull(relocations, "Relocations cannot be null")) {
             canonical.append(relocation.pattern()).append('=').append(relocation.relocatedPattern()).append('\n');
         }
@@ -199,7 +201,7 @@ public class RelocationHandler {
     public static RelocationHandler create(@NotNull LibraryManager libraryManager) {
         requireNonNull(libraryManager, "Library manager cannot be null");
 
-        IsolatedClassLoader classLoader = new IsolatedClassLoader();
+        IsolatedClassLoader classLoader = new RelocatorClassLoader();
 
         try {
             libraryManager.loadDependencies(classLoader, RELOCATION_DEPENDENCIES, Collections.emptyList());

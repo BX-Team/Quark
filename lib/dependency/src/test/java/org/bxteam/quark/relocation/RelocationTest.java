@@ -1,6 +1,5 @@
 package org.bxteam.quark.relocation;
 
-import me.lucko.jarrelocator.JarRelocator;
 import org.bxteam.quark.LibraryManager;
 import org.bxteam.quark.classloader.IsolatedClassLoader;
 import org.bxteam.quark.dependency.Dependency;
@@ -42,9 +41,8 @@ class RelocationTest {
         repository = new FakeMavenRepository(Files.createDirectory(temp.resolve("remote")));
 
         // the relocation tools are downloaded like any other dependency, so serve them from the test class path
-        publishFromClassPath("org.ow2.asm:asm:9.7", ClassWriter.class);
-        publishFromClassPath("org.ow2.asm:asm-commons:9.7", ClassRemapper.class);
-        publishFromClassPath("me.lucko:jar-relocator:1.7", JarRelocator.class);
+        publishFromClassPath("org.ow2.asm:asm:9.10.1", ClassWriter.class);
+        publishFromClassPath("org.ow2.asm:asm-commons:9.10.1", ClassRemapper.class);
 
         repository.publish(LIBRARY, new PomBuilder().build(LIBRARY), FakeMavenRepository.jar(Map.of(
                 "com/example/lib/Helper.class", helperClass(),
@@ -71,6 +69,20 @@ class RelocationTest {
             assertEquals("hello from quark", greeter.getMethod("greet").invoke(null));
             assertThrows(ClassNotFoundException.class, () -> classLoader.loadClass("com.example.lib.Greeter"));
         }
+    }
+
+    @Test
+    void downloadsOnlyAsmForRelocation() throws Exception {
+        try (IsolatedClassLoader classLoader = new IsolatedClassLoader()) {
+            libraryManager.loadDependencies(classLoader, List.of(LIBRARY), RELOCATIONS);
+        }
+
+        List<String> jars = repository.requests().stream().filter(path -> path.endsWith(".jar")).sorted().toList();
+        assertEquals(List.of(
+                "com/example/greeter/1.0/greeter-1.0.jar",
+                "org/ow2/asm/asm-commons/9.10.1/asm-commons-9.10.1.jar",
+                "org/ow2/asm/asm/9.10.1/asm-9.10.1.jar"
+        ), jars);
     }
 
     @Test
