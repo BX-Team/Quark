@@ -4,11 +4,16 @@ plugins {
 
 description = "Runtime Maven dependency manager: resolution, relocation and class loading"
 
+val asmVersion = "9.10.1"
+
 dependencies {
     api(project(":quark-common"))
 
-    // served by the fake Maven repository in RelocationTest, versions match RelocationHandler
-    testImplementation("org.ow2.asm:asm:9.7")
-    testImplementation("org.ow2.asm:asm-commons:9.7")
-    testImplementation("me.lucko:jar-relocator:1.7")
+    // the relocator (relocation.asm) is compiled against ASM, which is downloaded at runtime; versions match RelocationHandler
+    compileOnly("org.ow2.asm:asm:$asmVersion")
+    compileOnly("org.ow2.asm:asm-commons:$asmVersion")
+
+    // also served by the fake Maven repository in RelocationTest
+    testImplementation("org.ow2.asm:asm:$asmVersion")
+    testImplementation("org.ow2.asm:asm-commons:$asmVersion")
 }
