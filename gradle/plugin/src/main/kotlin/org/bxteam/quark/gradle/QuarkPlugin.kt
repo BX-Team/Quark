@@ -1,5 +1,6 @@
 package org.bxteam.quark.gradle
 
+import com.github.jengelman.gradle.plugins.shadow.relocation.SimpleRelocator
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 import org.bxteam.quark.gradle.devserver.DevLibrary
 import org.bxteam.quark.gradle.devserver.DevServerSpec
@@ -8,6 +9,7 @@ import org.bxteam.quark.gradle.devserver.RunDevServer
 import org.gradle.api.GradleException
 import org.gradle.api.Plugin
 import org.gradle.api.Project
+import org.gradle.api.artifacts.ModuleDependency
 import org.gradle.api.artifacts.component.ModuleComponentIdentifier
 import org.gradle.api.artifacts.repositories.MavenArtifactRepository
 import org.gradle.api.file.DuplicatesStrategy
@@ -38,6 +40,7 @@ class QuarkPlugin : Plugin<Project> {
             modules.convention(emptySet())
             relocateQuark.convention(true)
             quarkPackage.convention(project.provider { defaultQuarkPackage(project) })
+            librariesPackage.convention(project.provider { "${requireGroup(project, "librariesPackage = \"my.plugin.libs\"")}.libs" })
         }
 
         val quark = project.configurations.register(CONFIGURATION_NAME) {
@@ -55,6 +58,29 @@ class QuarkPlugin : Plugin<Project> {
                 project.dependencies.platform("org.bxteam.quark:quark-bom:$QUARK_VERSION")
             )
             addQuarkModules(project, extension)
+
+            val collectRelocated = project.tasks.register<CollectRelocatedLibraries>("collectRelocatedQuarkLibraries") {
+                group = "build"
+                description = "Finds the packages of the quark libraries marked with relocate = true"
+                modules.set(project.provider {
+                    quark.get().dependencies.withType(ModuleDependency::class.java)
+                        .filter { it.relocate }
+                        .map { "${it.group}:${it.name}" }
+                        .toSet()
+                })
+                librariesPackage.set(extension.librariesPackage)
+                artifacts.set(quark.flatMap { configuration ->
+                    configuration.incoming.artifacts.resolvedArtifacts.map { resolved ->
+                        resolved.mapNotNull { artifact ->
+                            val id = artifact.id.componentIdentifier as? ModuleComponentIdentifier ?: return@mapNotNull null
+                            LibraryArtifact("${id.group}:${id.module}", artifact.file)
+                        }
+                    }
+                })
+                classpath.from(quark)
+                outputFile.set(project.layout.buildDirectory.file("quark/relocated-libraries.txt"))
+            }
+            val relocatedLibraries = collectRelocated.flatMap { it.outputFile }.map { CollectRelocatedLibraries.read(it.asFile) }
 
             val generateManifest = project.tasks.register<GenerateQuarkManifest>("generateQuarkManifest") {
                 group = "build"
@@ -76,7 +102,10 @@ class QuarkPlugin : Plugin<Project> {
                         artifacts.mapNotNull { (it.id.componentIdentifier as? ModuleComponentIdentifier)?.displayName }
                     }
                 })
-                relocations.set(extension.relocations.map { rules -> rules.map { "${it.pattern}=${it.newPattern}" } })
+                relocations.set(extension.relocations.zip(relocatedLibraries) { configured, libraries ->
+                    (configured + libraries).map { "${it.pattern}=${it.newPattern}" }
+                })
+                dependsOn(collectRelocated)
                 outputDirectory.set(project.layout.buildDirectory.dir("generated/quark/resources"))
             }
 
@@ -85,6 +114,11 @@ class QuarkPlugin : Plugin<Project> {
             }
 
             registerDevServers(project, extension, quark)
+
+            project.tasks.withType<ShadowJar>().configureEach {
+                dependsOn(collectRelocated)
+                relocators.addAll(relocatedLibraries.map { rules -> rules.map { SimpleRelocator(it.pattern, it.newPattern) } })
+            }
         }
 
         project.afterEvaluate {
@@ -205,15 +239,17 @@ class QuarkPlugin : Plugin<Project> {
         }
     }
 
-    private fun defaultQuarkPackage(project: Project): String {
+    private fun defaultQuarkPackage(project: Project): String =
+        "${requireGroup(project, "quarkPackage = \"my.plugin.libs.quark\"")}.libs.quark"
+
+    private fun requireGroup(project: Project, alternative: String): String {
         val group = project.group.toString()
         if (group.isBlank()) {
             throw GradleException(
-                "Cannot relocate Quark: the project has no group. Set `group = \"...\"` or " +
-                    "`quark { quarkPackage = \"my.plugin.libs.quark\" }`"
+                "Cannot relocate Quark: the project has no group. Set `group = \"...\"` or `quark { $alternative }`"
             )
         }
-        return "$group.libs.quark"
+        return group
     }
 
     private companion object {
