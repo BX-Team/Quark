@@ -146,6 +146,12 @@ abstract class QuarkExtension @Inject constructor(objects: ObjectFactory) {
     abstract val quarkPackage: Property<String>
 
     /**
+     * Package that `quark` libraries marked with `relocate = true` are moved into, each under its original package
+     * name (`com.google.gson` -> `<librariesPackage>.com.google.gson`). Defaults to `<project group>.libs`.
+     */
+    abstract val librariesPackage: Property<String>
+
+    /**
      * Configures the repositories used to download dependencies at runtime, replacing the default.
      */
     fun repositories(configure: Action<RepositoryDsl>) {
