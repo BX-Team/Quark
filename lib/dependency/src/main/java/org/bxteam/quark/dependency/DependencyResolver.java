@@ -7,6 +7,7 @@ import org.bxteam.quark.dependency.model.PomContext;
 import org.bxteam.quark.dependency.model.ResolutionResult;
 import org.bxteam.quark.dependency.model.ResolvedDependency;
 import org.bxteam.quark.dependency.processor.PomProcessor;
+import org.bxteam.quark.dependency.resolver.MavenVersions;
 import org.bxteam.quark.dependency.resolver.VersionResolver;
 import org.bxteam.quark.logger.Logger;
 import org.bxteam.quark.repository.Repository;
@@ -23,6 +24,7 @@ import static java.util.Objects.requireNonNull;
  */
 public class DependencyResolver {
     private static final int MAX_RESOLUTION_ITERATIONS = 50;
+    private static final int MAX_MEDIATION_PASSES = 10;
 
     private final Logger logger;
     private final DependencyCache cache;
@@ -200,9 +202,10 @@ public class DependencyResolver {
     /**
      * Resolves all transitive dependencies for the given root dependencies.
      *
-     * <p>This method performs a full dependency resolution, downloading POM files,
-     * processing transitive dependencies, and downloading JAR files for all
-     * resolved dependencies according to the configured resolution settings.</p>
+     * <p>Each library ({@code group:artifact[:classifier]}) is resolved to one version: the version requested by
+     * the roots if the library is one of them, otherwise the newest version any library in the graph asks for
+     * (see {@link MavenVersions}). The graph is walked again with the chosen versions until the choice is stable,
+     * so dependencies only an older, replaced version needed are dropped.</p>
      *
      * @param rootDependencies the root dependencies to resolve
      * @return the resolution result containing all resolved dependencies and any errors
@@ -210,84 +213,34 @@ public class DependencyResolver {
      */
     @NotNull
     public ResolutionResult resolveDependencies(@NotNull Collection<Dependency> rootDependencies) {
+        return resolveDependencies(rootDependencies, true);
+    }
+
+    /**
+     * Resolves the given dependencies, with or without their transitive dependencies.
+     *
+     * <p>Without transitive resolution exactly the given dependencies are downloaded, which is right for lists
+     * that are already complete, such as the manifest of the Quark Gradle plugin: Gradle resolved the graph and
+     * chose the versions when the plugin was built.</p>
+     *
+     * @param rootDependencies the dependencies to resolve
+     * @param transitive whether the dependencies of the given dependencies are resolved too
+     * @return the resolution result containing all resolved dependencies and any errors
+     * @throws NullPointerException if rootDependencies is null
+     */
+    @NotNull
+    public ResolutionResult resolveDependencies(@NotNull Collection<Dependency> rootDependencies, boolean transitive) {
         requireNonNull(rootDependencies, "Root dependencies cannot be null");
 
         logger.info("Resolving dependencies...");
 
         cache.clearAll();
 
-        Set<Dependency> allDependencies = new LinkedHashSet<>();
-        Set<Dependency> toProcess = new LinkedHashSet<>(rootDependencies);
         List<String> resolutionErrors = new ArrayList<>();
-
-        for (Dependency root : rootDependencies) {
-            cache.setDependencyDepth(root.getCoordinates(), 0);
-        }
-
-        int iteration = 1;
-
-        while (!toProcess.isEmpty()) {
-            Set<Dependency> currentBatch = new LinkedHashSet<>(toProcess);
-            toProcess.clear();
-
-            logger.debug("=== Iteration " + iteration + " - Processing " + currentBatch.size() + " dependencies ===");
-
-            for (Dependency dependency : currentBatch) {
-                String dependencyKey = dependency.getCoordinates();
-
-                if (cache.isProcessed(dependencyKey)) {
-                    continue;
-                }
-
-                try {
-                    if (shouldExcludeDependency(dependency)) {
-                        logger.debug("Skipping excluded dependency: " + dependency.toShortString());
-                        cache.markAsProcessed(dependencyKey);
-                        continue;
-                    }
-
-                    int currentDepth = cache.getDependencyDepth(dependencyKey, 0);
-
-                    if (currentDepth > 0 && currentDepth > maxTransitiveDepth) {
-                        logger.debug("Skipping dependency exceeding max depth: " + dependency.toShortString());
-                        cache.markAsProcessed(dependencyKey);
-                        continue;
-                    }
-
-                    Dependency resolvedDependency = versionResolver.resolveDependencyVersion(dependency);
-                    logger.debug("Processing: " + resolvedDependency.toShortString());
-
-                    allDependencies.add(resolvedDependency);
-                    cache.markAsProcessed(dependencyKey);
-
-                    PomContext pomContext = pomProcessor.downloadAndProcessPom(resolvedDependency);
-                    if (pomContext != null) {
-                        logger.debug("Found " + pomContext.allDependencies().size() + " transitive dependencies for " + resolvedDependency.toShortString());
-                        for (Dependency transitive : pomContext.allDependencies()) {
-                            String transitiveKey = transitive.getCoordinates();
-                            if (!cache.isProcessed(transitiveKey)) {
-                                cache.setDependencyDepth(transitiveKey, currentDepth + 1);
-                                toProcess.add(transitive);
-                                logger.debug("  + " + transitive.toShortString() + " (depth " + (currentDepth + 1) + ")");
-                            }
-                        }
-                    }
-
-                } catch (Exception e) {
-                    String errorMsg = "Failed to resolve dependency " + dependency.toShortString() + ": " + e.getMessage();
-                    resolutionErrors.add(errorMsg);
-                    logger.debug("Resolution error for " + dependency.toShortString() + ": " + e.getMessage());
-                }
-            }
-
-            iteration++;
-
-            if (iteration > MAX_RESOLUTION_ITERATIONS) {
-                resolutionErrors.add("Maximum resolution iterations reached - possible circular dependencies");
-                break;
-            }
-        }
-
+        Map<String, Dependency> roots = resolveRoots(rootDependencies, resolutionErrors);
+        Collection<Dependency> allDependencies = transitive
+                ? resolveGraph(roots, resolutionErrors)
+                : roots.values();
         logger.info("Resolved " + allDependencies.size() + " dependencies");
 
         List<ResolvedDependency> resolvedDependencies = new ArrayList<>();
@@ -309,6 +262,167 @@ public class DependencyResolver {
         }
 
         return new ResolutionResult(resolvedDependencies, resolutionErrors);
+    }
+
+    /**
+     * Resolves the versions of the root dependencies. A library listed twice keeps its newest version.
+     *
+     * @return the roots by library key, in the given order
+     */
+    private Map<String, Dependency> resolveRoots(Collection<Dependency> rootDependencies, List<String> resolutionErrors) {
+        Map<String, Dependency> roots = new LinkedHashMap<>();
+        for (Dependency root : rootDependencies) {
+            if (shouldExcludeDependency(root)) {
+                logger.debug("Skipping excluded dependency: " + root.toShortString());
+                continue;
+            }
+            try {
+                Dependency resolved = versionResolver.resolveDependencyVersion(root);
+                roots.merge(libraryKey(resolved), resolved, DependencyResolver::newer);
+            } catch (Exception e) {
+                resolutionErrors.add("Failed to resolve dependency " + root.toShortString() + ": " + e.getMessage());
+                logger.debug("Resolution error for " + root.toShortString() + ": " + e.getMessage());
+            }
+        }
+        return roots;
+    }
+
+    /**
+     * Walks the graph from the roots until the chosen version of every library is stable.
+     *
+     * @return the chosen dependencies, roots first, then in breadth-first order
+     */
+    private Collection<Dependency> resolveGraph(Map<String, Dependency> roots, List<String> resolutionErrors) {
+        Map<String, Dependency> selected = new LinkedHashMap<>(roots);
+        Walk walk = null;
+
+        for (int pass = 1; pass <= MAX_MEDIATION_PASSES; pass++) {
+            Walk current = walk(roots, selected, resolutionErrors);
+            walk = current;
+            Map<String, Dependency> next = new LinkedHashMap<>();
+            current.order.forEach(dependency -> next.put(libraryKey(dependency), current.requested.get(libraryKey(dependency))));
+            if (coordinates(next).equals(coordinates(selected))) {
+                break;
+            }
+            if (pass == MAX_MEDIATION_PASSES) {
+                resolutionErrors.add("Dependency versions did not settle after " + MAX_MEDIATION_PASSES + " passes, using the last choice");
+            }
+            selected = next;
+        }
+
+        Walk last = walk;
+        last.conflicts.forEach((key, versions) -> {
+            if (versions.size() > 1) {
+                Dependency chosen = last.requested.get(key);
+                logger.debug("Version conflict for " + key + ": requested " + versions + ", using " + chosen.getVersion()
+                        + (roots.containsKey(key) ? " (declared directly)" : ""));
+            }
+        });
+        return last.order;
+    }
+
+    /**
+     * One walk over the graph, visiting every library once with its selected version (or, for libraries seen
+     * for the first time, the newest version requested so far).
+     */
+    private Walk walk(Map<String, Dependency> roots, Map<String, Dependency> selected, List<String> resolutionErrors) {
+        Walk walk = new Walk();
+        walk.requested.putAll(roots);
+        roots.forEach((key, root) -> walk.conflicts.computeIfAbsent(key, ignored -> new LinkedHashSet<>()).add(root.getVersion()));
+
+        Deque<Dependency> queue = new ArrayDeque<>(roots.values());
+        Map<String, Integer> depths = new HashMap<>();
+        roots.keySet().forEach(key -> depths.put(key, 0));
+        Set<String> visited = new HashSet<>();
+        int processed = 0;
+
+        while (!queue.isEmpty()) {
+            Dependency requested = queue.poll();
+            String key = libraryKey(requested);
+            if (!visited.add(key)) {
+                continue;
+            }
+            if (++processed > MAX_RESOLUTION_ITERATIONS * 100) {
+                resolutionErrors.add("Too many dependencies - possible circular dependencies");
+                break;
+            }
+
+            Dependency dependency = selected.getOrDefault(key, walk.requested.getOrDefault(key, requested));
+            walk.order.add(dependency);
+            logger.debug("Processing: " + dependency.toShortString());
+
+            int depth = depths.getOrDefault(key, 0);
+            if (depth >= maxTransitiveDepth) {
+                continue;
+            }
+
+            PomContext pomContext;
+            try {
+                pomContext = pomProcessor.downloadAndProcessPom(dependency);
+            } catch (Exception e) {
+                resolutionErrors.add("Failed to resolve dependency " + dependency.toShortString() + ": " + e.getMessage());
+                logger.debug("Resolution error for " + dependency.toShortString() + ": " + e.getMessage());
+                continue;
+            }
+            if (pomContext == null) {
+                continue;
+            }
+
+            for (Dependency transitive : pomContext.allDependencies()) {
+                if (shouldExcludeDependency(transitive)) {
+                    continue;
+                }
+                Dependency resolved;
+                try {
+                    resolved = versionResolver.resolveDependencyVersion(transitive);
+                } catch (Exception e) {
+                    resolutionErrors.add("Failed to resolve dependency " + transitive.toShortString() + ": " + e.getMessage());
+                    continue;
+                }
+                String transitiveKey = libraryKey(resolved);
+                walk.conflicts.computeIfAbsent(transitiveKey, ignored -> new LinkedHashSet<>()).add(resolved.getVersion());
+                if (!roots.containsKey(transitiveKey)) {
+                    walk.requested.merge(transitiveKey, resolved, DependencyResolver::newer);
+                }
+                depths.putIfAbsent(transitiveKey, depth + 1);
+                if (!visited.contains(transitiveKey)) {
+                    queue.add(resolved);
+                    logger.debug("  + " + resolved.toShortString() + " (depth " + (depth + 1) + ")");
+                }
+            }
+        }
+        return walk;
+    }
+
+    /**
+     * State of one {@link #walk}.
+     */
+    private static final class Walk {
+        /** Visited dependencies with the version used. */
+        final List<Dependency> order = new ArrayList<>();
+        /** The version each library would get: the root version, else the newest requested. */
+        final Map<String, Dependency> requested = new LinkedHashMap<>();
+        /** Every version requested per library, for the conflict report. */
+        final Map<String, Set<String>> conflicts = new LinkedHashMap<>();
+    }
+
+    private static Dependency newer(Dependency current, Dependency candidate) {
+        return MavenVersions.compare(candidate.getVersion(), current.getVersion()) > 0 ? candidate : current;
+    }
+
+    private static Map<String, String> coordinates(Map<String, Dependency> dependencies) {
+        Map<String, String> result = new HashMap<>();
+        dependencies.forEach((key, dependency) -> result.put(key, dependency.getVersion()));
+        return result;
+    }
+
+    /**
+     * @return {@code group:artifact[:classifier]}, the identity of a library regardless of its version
+     */
+    private static String libraryKey(Dependency dependency) {
+        return dependency.getClassifier() != null
+                ? dependency.getGroupArtifactId() + ":" + dependency.getClassifier()
+                : dependency.getGroupArtifactId();
     }
 
     /**

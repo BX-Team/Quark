@@ -483,6 +483,17 @@ public class LibraryManager {
      * @throws LibraryLoadException if loading fails
      */
     public void loadDependencies(@NotNull List<Dependency> dependencies, @NotNull List<Relocation> relocations) {
+        loadDependencies(dependencies, relocations, true);
+    }
+
+    /**
+     * Loads dependencies into the main classpath, resolving their transitive dependencies only if asked to.
+     *
+     * @param dependencies the dependencies
+     * @param relocations the package relocations to apply
+     * @param transitive false for complete lists such as the Gradle manifest
+     */
+    private void loadDependencies(@NotNull List<Dependency> dependencies, @NotNull List<Relocation> relocations, boolean transitive) {
         requireNonNull(dependencies, "Dependencies cannot be null");
         requireNonNull(relocations, "Relocations cannot be null");
 
@@ -493,7 +504,7 @@ public class LibraryManager {
         Instant startTime = Instant.now();
 
         try {
-            ResolutionResult result = dependencyResolver.resolveDependencies(dependencies);
+            ResolutionResult result = dependencyResolver.resolveDependencies(dependencies, transitive);
 
             if (result.hasErrors()) {
                 logger.warn("Dependency resolution completed with " + result.errors().size() + " errors");
@@ -535,6 +546,21 @@ public class LibraryManager {
     public void loadDependencies(@NotNull IsolatedClassLoader classLoader,
                                  @NotNull List<Dependency> dependencies,
                                  @NotNull List<Relocation> relocations) {
+        loadDependencies(classLoader, dependencies, relocations, true);
+    }
+
+    /**
+     * Loads dependencies into an isolated class loader, resolving their transitive dependencies only if asked to.
+     *
+     * @param classLoader the isolated class loader
+     * @param dependencies the dependencies
+     * @param relocations the package relocations to apply
+     * @param transitive false for complete lists such as the Gradle manifest
+     */
+    private void loadDependencies(@NotNull IsolatedClassLoader classLoader,
+                                  @NotNull List<Dependency> dependencies,
+                                  @NotNull List<Relocation> relocations,
+                                  boolean transitive) {
         requireNonNull(classLoader, "Class loader cannot be null");
         requireNonNull(dependencies, "Dependencies cannot be null");
         requireNonNull(relocations, "Relocations cannot be null");
@@ -546,7 +572,7 @@ public class LibraryManager {
         Instant startTime = Instant.now();
 
         try {
-            ResolutionResult result = dependencyResolver.resolveDependencies(dependencies);
+            ResolutionResult result = dependencyResolver.resolveDependencies(dependencies, transitive);
 
             if (result.hasErrors()) {
                 logger.warn("Dependency resolution completed with " + result.errors().size() + " errors:");
@@ -729,13 +755,17 @@ public class LibraryManager {
      * <p>Reads {@value DependencyManifest#LOCATION} and loads all configured dependencies with their
      * repositories and relocations. Does nothing if the plugin has no manifest.</p>
      *
+     * <p>The manifest already lists the whole dependency graph with the versions Gradle chose, so exactly these
+     * dependencies are downloaded; their POMs are not resolved again.</p>
+     *
      * @throws org.bxteam.quark.manifest.ManifestException if the manifest is malformed
      * @throws LibraryLoadException if dependency loading fails
      */
     public void loadFromGradle() {
         DependencyManifest manifest = prepareManifest("");
         if (manifest != null) {
-            loadDependencies(manifest.dependencies(), manifest.relocations());
+            // the manifest lists the whole graph with the versions Gradle chose, resolving it again would add the losers back
+            loadDependencies(manifest.dependencies(), manifest.relocations(), false);
         }
     }
 
@@ -752,7 +782,7 @@ public class LibraryManager {
 
         DependencyManifest manifest = prepareManifest(" into isolated class loader");
         if (manifest != null) {
-            loadDependencies(classLoader, manifest.dependencies(), manifest.relocations());
+            loadDependencies(classLoader, manifest.dependencies(), manifest.relocations(), false);
         }
     }
 

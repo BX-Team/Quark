@@ -207,4 +207,60 @@ class DependencyResolverTest {
         assertFalse(second.hasErrors());
         assertEquals(requestsAfterFirstRun, repository.requests().size(), () -> repository.requests().toString());
     }
+
+    @Test
+    void conflictingTransitiveVersionsResolveToTheNewest() {
+        repository.publish("org.example:a:1.0", new PomBuilder().dependency("org.example:gson:2.10.1"))
+                .publish("org.example:b:1.0", new PomBuilder().dependency("org.example:gson:2.8.9"))
+                .publish("org.example:gson:2.10.1")
+                .publish("org.example:gson:2.8.9");
+
+        ResolutionResult result = resolve("org.example:b:1.0", "org.example:a:1.0");
+
+        assertFalse(result.hasErrors(), () -> result.errors().toString());
+        assertEquals(Set.of("org.example:a:1.0", "org.example:b:1.0", "org.example:gson:2.10.1"), coordinates(result));
+    }
+
+    @Test
+    void directlyDeclaredVersionsWin() {
+        repository.publish("org.example:a:1.0", new PomBuilder().dependency("org.example:gson:2.10.1"))
+                .publish("org.example:gson:2.10.1")
+                .publish("org.example:gson:2.8.9");
+
+        ResolutionResult result = resolve("org.example:a:1.0", "org.example:gson:2.8.9");
+
+        assertEquals(Set.of("org.example:a:1.0", "org.example:gson:2.8.9"), coordinates(result));
+    }
+
+    @Test
+    void dependenciesOfReplacedVersionsAreDropped() {
+        // a needs x:1.0 (which needs old-helper), b needs x:2.0 (which needs new-helper)
+        repository.publish("org.example:a:1.0", new PomBuilder().dependency("org.example:x:1.0"))
+                .publish("org.example:b:1.0", new PomBuilder().dependency("org.example:middle:1.0"))
+                .publish("org.example:middle:1.0", new PomBuilder().dependency("org.example:x:2.0"))
+                .publish("org.example:x:1.0", new PomBuilder().dependency("org.example:old-helper:1.0"))
+                .publish("org.example:x:2.0", new PomBuilder().dependency("org.example:new-helper:1.0"))
+                .publish("org.example:old-helper:1.0")
+                .publish("org.example:new-helper:1.0");
+
+        ResolutionResult result = resolve("org.example:a:1.0", "org.example:b:1.0");
+
+        assertFalse(result.hasErrors(), () -> result.errors().toString());
+        assertEquals(Set.of("org.example:a:1.0", "org.example:b:1.0", "org.example:middle:1.0", "org.example:x:2.0",
+                "org.example:new-helper:1.0"), coordinates(result));
+        assertFalse(repository.requests().contains("org/example/old-helper/1.0/old-helper-1.0.jar"), "only the chosen graph is downloaded");
+    }
+
+    @Test
+    void nonTransitiveResolutionReadsNoPoms() {
+        repository.publish("org.example:a:1.0", new PomBuilder().dependency("org.example:b:2.0"))
+                .publish("org.example:b:2.0");
+
+        ResolutionResult result = new DependencyResolver.Builder(new Logger(new NoopLogAdapter()),
+                List.of(Repository.of(repository.url())), localRepository).build()
+                .resolveDependencies(List.of(Dependency.fromCoordinates("org.example:a:1.0")), false);
+
+        assertEquals(Set.of("org.example:a:1.0"), coordinates(result));
+        assertTrue(repository.requests().stream().noneMatch(path -> path.endsWith(".pom")), repository.requests()::toString);
+    }
 }
