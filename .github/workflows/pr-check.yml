@@ -1,0 +1,83 @@
+name: PR Check
+
+on:
+  pull_request:
+    # `labeled` so that adding the label to an open pull request starts a run.
+    types: [opened, synchronize, reopened, labeled]
+    branches: ["master"]
+
+permissions: {}
+
+concurrency:
+  group: pr-check-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build and test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Validate the Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v6
+
+      - name: Set up the JDK
+        uses: actions/setup-java@v6
+        with:
+          java-version: "17"
+          distribution: temurin
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Build and run the tests
+        run: ./gradlew build --configuration-cache --stacktrace
+
+      - name: Check the artifact size budget
+        run: ./gradlew checkArtifactSize --configuration-cache
+
+      - name: Upload the test reports
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: Quark-test-reports
+          path: "**/build/reports/tests/"
+          if-no-files-found: ignore
+          retention-days: 7
+
+      # The Gradle plugin's functional tests already published every library module to build/local-repo;
+      # adding the plugin makes it a repository a reviewer can point a plugin build at to try the change.
+      - name: Publish the Gradle plugin into the build-local repository
+        if: contains(github.event.pull_request.labels.*.name, '📦 upload artifacts')
+        run: ./gradlew :quark-gradle-plugin:publishAllPublicationsToBuildLocalRepository --configuration-cache
+
+      - name: Upload the Maven repository
+        if: contains(github.event.pull_request.labels.*.name, '📦 upload artifacts')
+        uses: actions/upload-artifact@v7
+        with:
+          name: Quark-maven-repository
+          path: build/local-repo/
+          if-no-files-found: error
+          retention-days: 7
+
+  gate:
+    name: PR check
+    if: always()
+    needs: [build]
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Fail if any required job did not succeed
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          printf 'upstream results: %s\n' "$RESULTS"
+          case "$RESULTS" in
+            *failure*|*cancelled*|*skipped*) exit 1 ;;
+          esac
