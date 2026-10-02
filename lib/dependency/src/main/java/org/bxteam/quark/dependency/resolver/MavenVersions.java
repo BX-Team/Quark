@@ -45,6 +45,8 @@ public final class MavenVersions {
     }
 
     /**
+     * @param first a version
+     * @param second another version
      * @return the newer of two versions, {@code first} when they are equal
      */
     @NotNull

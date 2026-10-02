@@ -1,4 +1,4 @@
-val sizeBudget: Configuration by configurations.creating {
+val sizeBudget = configurations.create("sizeBudget") {
     isCanBeConsumed = false
     isCanBeResolved = true
     attributes {
