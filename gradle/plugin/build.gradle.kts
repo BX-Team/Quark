@@ -65,6 +65,12 @@ kotlin.sourceSets.main {
 }
 
 publishing {
+    repositories {
+        maven {
+            name = "buildLocal"
+            url = rootProject.layout.buildDirectory.dir("local-repo").get().asFile.toURI()
+        }
+    }
     publications.withType<MavenPublication>().configureEach {
         pom {
             licenses {

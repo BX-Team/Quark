@@ -4,63 +4,233 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version number to release'
+        description: Version to release (e.g. 2.0.0)
         required: true
+        type: string
+      description:
+        description: "Optional summary for the top of the release notes. Use \\n for a line break."
+        required: false
+        default: ""
+        type: string
+      prerelease:
+        description: Mark the GitHub release as a pre-release
+        default: false
+        type: boolean
+
+permissions: {}
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  set-release-version:
-    uses: BX-Team/Quark/.github/workflows/set-version.yml@master
-    with:
-      version: ${{ inputs.version }}
-    secrets: inherit
+  prepare:
+    name: Resolve the version
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+      tag: ${{ steps.resolve.outputs.tag }}
+      previous: ${{ steps.resolve.outputs.previous }}
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
 
-  build:
-    needs: set-release-version
+      - name: Validate the version and find the previous tag
+        id: resolve
+        env:
+          VERSION: ${{ inputs.version }}
+        shell: bash
+        run: |
+          if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
+            echo "::error::'$VERSION' is not a semantic version"
+            exit 1
+          fi
+          case "$VERSION" in
+            *-SNAPSHOT)
+              echo "::error::a release cannot be a -SNAPSHOT version"
+              exit 1
+              ;;
+          esac
+          if git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null; then
+            echo "::error::tag v$VERSION already exists"
+            exit 1
+          fi
+          {
+            echo "version=$VERSION"
+            echo "tag=v$VERSION"
+            echo "previous=$(git tag --list 'v*' --sort=-v:refname | head -n1)"
+          } >> "$GITHUB_OUTPUT"
+
+  check:
+    name: Build and test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Validate the Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v6
+
+      - name: Set up the JDK
+        uses: actions/setup-java@v6
+        with:
+          java-version: "17"
+          distribution: temurin
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Build and run the tests
+        run: ./gradlew build --configuration-cache --stacktrace
+
+      - name: Check the artifact size budget
+        run: ./gradlew checkArtifactSize --configuration-cache
+
+  tag:
+    name: Tag the release
+    needs: [prepare, check]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      sha: ${{ steps.push.outputs.sha }}
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_TOKEN }}
+
+      - name: Set the version in gradle.properties
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        shell: bash
+        run: |
+          sed -i 's/^version=.*/version='"$VERSION"'/' gradle.properties
+          grep -qx "version=$VERSION" gradle.properties
+
+      - name: Commit the bump and push the tag
+        id: push
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add gradle.properties
+          git commit -m "chore(release): bump version to $VERSION"
+          git tag -a "$TAG" -m "$VERSION"
+          git push origin HEAD:"${GITHUB_REF_NAME}"
+          git push origin "$TAG"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+  # One build feeds three destinations, so the publishes stay together in this job.
+  publish:
+    name: Publish the release
+    needs: [prepare, tag]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
+      - name: Check out the tagged commit
+        uses: actions/checkout@v7
         with:
+          ref: ${{ needs.tag.outputs.sha }}
           fetch-depth: 0
+          persist-credentials: false
 
-      - name: Checkout latest release tag
-        id: tag_search
-        run: |
-          echo "latest_tag=$(git describe --tags `git rev-list --tags --max-count=1`)" >> $GITHUB_OUTPUT
-
-      - name: Build Changelog
-        id: github_release
-        uses: mikepenz/release-changelog-builder-action@v6.4.0
+      - name: Set up the JDK
+        uses: actions/setup-java@v6
         with:
+          java-version: "17"
+          distribution: temurin
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Verify the version of the tagged commit
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        shell: bash
+        run: grep -qx "version=$VERSION" gradle.properties
+
+      - name: Publish the libraries to repo.bxteam.org
+        env:
+          REPO_USERNAME: ${{ secrets.REPO_USERNAME }}
+          REPO_PASSWORD: ${{ secrets.REPO_SECRET }}
+        run: ./gradlew publishAllPublicationsToQuarkRepository --stacktrace
+
+      - name: Publish the Gradle plugin to the Plugin Portal
+        env:
+          GRADLE_PUBLISH_KEY: ${{ secrets.GRADLE_PUBLISH_KEY }}
+          GRADLE_PUBLISH_SECRET: ${{ secrets.GRADLE_PUBLISH_SECRET }}
+        run: ./gradlew :quark-gradle-plugin:publishPlugins --stacktrace
+
+      - name: Build the changelog
+        id: changelog
+        uses: mikepenz/release-changelog-builder-action@v6
+        with:
+          configuration: .github/changelog_configuration.json
           mode: COMMIT
-          fromTag: ${{ steps.tag_search.outputs.latest_tag }}
-          toTag: ${{ github.ref }}
-          configuration: ".github/changelog_configuration.json"
+          fromTag: ${{ needs.prepare.outputs.previous }}
+          toTag: ${{ needs.prepare.outputs.tag }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Release
-        uses: softprops/action-gh-release@v2.6.2
+      - name: Compose the release body
+        env:
+          DESCRIPTION: ${{ inputs.description }}
+          CHANGELOG: ${{ steps.changelog.outputs.changelog }}
+        shell: bash
+        run: |
+          if [ -n "$(printf '%s' "$DESCRIPTION" | tr -d '[:space:]')" ]; then
+            {
+              echo '## 📑 Changelog'
+              echo
+              # %b so a '\n' typed into the dispatch field becomes a real line
+              # break — GitHub renders that input as a single-line box.
+              printf '%b\n' "$DESCRIPTION"
+              echo
+              printf '%s\n' "$CHANGELOG" | sed 's/^## /### /'
+            } >body.md
+          else
+            printf '%s\n' "$CHANGELOG" >body.md
+          fi
+
+      - name: Publish the GitHub release
+        uses: softprops/action-gh-release@v3
         with:
-          body: ${{ steps.github_release.outputs.changelog }}
-          tag_name: v${{ inputs.version }}
-          generate_release_notes: false
-          draft: false
-          prerelease: false
-          target_commitish: master
+          tag_name: ${{ needs.prepare.outputs.tag }}
+          name: Quark ${{ needs.prepare.outputs.version }}
+          body_path: body.md
+          prerelease: ${{ inputs.prerelease }}
           token: ${{ secrets.GITHUB_TOKEN }}
-          fail_on_unmatched_files: true
-          name: Quark ${{ inputs.version }}
-          preserve_order: true
 
-  deploy-maven:
-    needs: build
-    uses: BX-Team/Quark/.github/workflows/deploy-maven.yml@master
-    secrets: inherit
-
-  deploy-gradle-plugin:
-    needs: build
-    uses: BX-Team/Quark/.github/workflows/deploy-gradle-plugin.yml@master
-    secrets: inherit
+      - name: Write the result to the run summary
+        env:
+          TAG: ${{ needs.prepare.outputs.tag }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+          URL: ${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ needs.prepare.outputs.tag }}
+        shell: bash
+        run: |
+          {
+            echo "## [$TAG]($URL)"
+            echo
+            echo '| Target | Status |'
+            echo '| --- | --- |'
+            echo "| repo.bxteam.org | \`org.bxteam.quark:*:$VERSION\` |"
+            echo "| Gradle Plugin Portal | \`org.bxteam.quark\` $VERSION |"
+            echo "| GitHub release | $TAG |"
+            echo
+            cat body.md
+          } >> "$GITHUB_STEP_SUMMARY"
