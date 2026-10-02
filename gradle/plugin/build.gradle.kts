@@ -6,7 +6,7 @@ plugins {
 group = "org.bxteam"
 description = "Gradle plugin for Quark: runtime dependency manifest, relocations and Quark BOM"
 
-val testShadow: Configuration by configurations.creating
+val testShadow = configurations.create("testShadow")
 
 dependencies {
     compileOnly("com.gradleup.shadow:shadow-gradle-plugin:9.1.0")

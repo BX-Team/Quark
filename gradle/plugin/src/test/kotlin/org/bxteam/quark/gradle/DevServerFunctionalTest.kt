@@ -38,6 +38,7 @@ class DevServerFunctionalTest {
                 import org.bxteam.quark.gradle.QuarkModule
                 import org.bxteam.quark.gradle.ServerPlatform
                 import org.bxteam.quark.gradle.ServerType
+                import org.bxteam.quark.gradle.relocate
 
                 plugins {
                     java
@@ -306,5 +307,35 @@ class DevServerFunctionalTest {
             assertTrue(bytes.contains("org{}snakeyaml{}engine"), "original package must survive relocation")
             assertFalse(bytes.contains("org/snakeyaml/engine"), "no class reference may be left unrelocated")
         }
+    }
+
+    @Test
+    fun `works on gradle 8`() {
+        project(
+            """
+            quark {
+                platform = ServerPlatform.PAPER
+                modules(QuarkModule.CONFIG)
+                devServer { version = "1.21.8" }
+            }
+            dependencies {
+                quark("com.acme:never-resolved:1.0") { relocate = true }
+            }
+            """.trimIndent()
+        )
+
+        val output = GradleRunner.create()
+            .withProjectDir(projectDir)
+            .withPluginClasspath()
+            .withGradleVersion(OLDEST_SUPPORTED_GRADLE)
+            .withArguments("tasks", "--group", "quark", "--stacktrace")
+            .build().output
+
+        assertTrue(output.contains("runServer - "), output)
+    }
+
+    private companion object {
+        /** Oldest Gradle the plugin is built for, see `kotlin { compilerOptions }` in its build script. */
+        const val OLDEST_SUPPORTED_GRADLE = "8.14.3"
     }
 }
