@@ -6,6 +6,7 @@ import org.bxteam.quark.gradle.devserver.DevLibrary
 import org.bxteam.quark.gradle.devserver.DevServerSpec
 import org.bxteam.quark.gradle.devserver.MinecraftVersions
 import org.bxteam.quark.gradle.devserver.RunDevServer
+import org.bxteam.quark.gradle.pluginyml.GeneratePluginYml
 import org.gradle.api.GradleException
 import org.gradle.api.Plugin
 import org.gradle.api.Project
@@ -15,6 +16,7 @@ import org.gradle.api.artifacts.repositories.MavenArtifactRepository
 import org.gradle.api.file.DuplicatesStrategy
 import org.gradle.api.plugins.JavaPlugin
 import org.gradle.api.tasks.SourceSetContainer
+import org.gradle.api.tasks.TaskProvider
 import org.gradle.jvm.toolchain.JavaLanguageVersion
 import org.gradle.jvm.toolchain.JavaToolchainService
 import org.gradle.kotlin.dsl.named
@@ -29,7 +31,8 @@ import org.gradle.kotlin.dsl.withType
  * - adds `repo.bxteam.org`, the Quark BOM, the adapter of `quark.platform` and the modules listed in
  *   `quark.modules`;
  * - relocates Quark itself to `<group>.libs.quark` in the shaded JAR (snakeyaml-engine, used by `quark-config-yaml`,
- *   to `<group>.libs.quark.snakeyaml`), plus your `relocate(...)` rules.
+ *   to `<group>.libs.quark.snakeyaml`), plus your `relocate(...)` rules;
+ * - generates `plugin.yml` and the other plugin descriptors from `quark { pluginYml { } }`.
  */
 class QuarkPlugin : Plugin<Project> {
     override fun apply(project: Project) {
@@ -109,8 +112,11 @@ class QuarkPlugin : Plugin<Project> {
                 outputDirectory.set(project.layout.buildDirectory.dir("generated/quark/resources"))
             }
 
+            val generatePluginYml = registerPluginYml(project, extension)
+
             project.extensions.getByType(SourceSetContainer::class.java).named("main") {
                 resources.srcDir(generateManifest.map { it.outputDirectory })
+                resources.srcDir(generatePluginYml.map { it.outputDirectory })
             }
 
             registerDevServers(project, extension, quark)
@@ -129,6 +135,44 @@ class QuarkPlugin : Plugin<Project> {
                 )
             }
             configureShadowJar(project, extension)
+
+            if (extension.pluginYml.enabled.get()) {
+                PLUGIN_YML_PLUGIN_IDS.firstOrNull { plugins.hasPlugin(it) }?.let {
+                    throw GradleException(
+                        "quark { pluginYml { } } and the '$it' plugin both generate the plugin descriptor. " +
+                            "Remove id(\"$it\") and its block, or remove pluginYml { }."
+                    )
+                }
+            }
+        }
+    }
+
+    private fun registerPluginYml(project: Project, extension: QuarkExtension): TaskProvider<GeneratePluginYml> {
+        extension.pluginYml.apply {
+            name.convention(project.rootProject.name)
+            version.convention(project.provider { project.version.toString() })
+            description.convention(project.provider { project.description })
+            foliaSupported.convention(extension.platform.map { it == ServerPlatform.FOLIA })
+            paperPlugin.convention(false)
+        }
+
+        val generatedResources = project.layout.buildDirectory.dir("generated/quark")
+        val resourceDirectories = project.provider {
+            val generated = generatedResources.get().asFile
+            project.extensions.getByType(SourceSetContainer::class.java).getByName("main").resources.srcDirs
+                .filterNot { it.startsWith(generated) }
+        }
+
+        return project.tasks.register<GeneratePluginYml>("generatePluginYml") {
+            group = "build"
+            description = "Generates plugin.yml, paper-plugin.yml, bungee.yml or velocity-plugin.json from quark { pluginYml { } }"
+            descriptor.set(project.provider {
+                if (extension.pluginYml.enabled.get()) extension.pluginYml.snapshot(extension.platform.orNull) else null
+            })
+            handWritten.from(resourceDirectories.map { directories ->
+                directories.flatMap { directory -> GeneratePluginYml.FILE_NAMES.map { directory.resolve(it) } }
+            })
+            outputDirectory.set(generatedResources.map { it.dir("plugin-yml") })
         }
     }
 
@@ -257,6 +301,8 @@ class QuarkPlugin : Plugin<Project> {
         const val SHADOW_PLUGIN_ID = "com.gradleup.shadow"
         const val QUARK_PACKAGE = "org.bxteam.quark"
         const val SNAKEYAML_ENGINE_PACKAGE = "org.snakeyaml.engine"
+        val PLUGIN_YML_PLUGIN_IDS = listOf("bukkit", "paper", "bungee", "nukkit")
+            .flatMap { listOf("net.minecrell.plugin-yml.$it", "de.eldoria.plugin-yml.$it") }
     }
 }
 

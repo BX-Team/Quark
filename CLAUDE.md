@@ -21,7 +21,9 @@ not shipped: it is found on the class path or downloaded by `quark-dependency`.
 The Gradle plugin is the user-facing glue. `quark { platform = ...; modules(...) }`
 adds the adapter and modules from the BOM, the `quark` configuration becomes the
 runtime manifest (`META-INF/quark/manifest`), Shadow relocates Quark to
-`<group>.libs.quark`, and `devServer { }` registers `runServer`.
+`<group>.libs.quark`, `devServer { }` registers `runServer`, and `pluginYml { }`
+writes the descriptor of the platform (`plugin.yml`, `paper-plugin.yml`, `bungee.yml`,
+`velocity-plugin.json`).
 
 | Module | Responsibility |
 | ------ | -------------- |
@@ -80,6 +82,10 @@ module on the class path switches itself on; a missing one costs nothing.
   constructor.
 - **Java 17 for every module.** The Gradle plugin is built with Gradle 9 and must
   keep working on Gradle 8.14 — `DevServerFunctionalTest` runs it there.
+- **`pluginYml { }` replaces plugin-yml, without Jackson.** One block for every
+  platform, dependencies declared once and translated per format, a small
+  hand-written YAML/JSON writer. Strings SnakeYAML 1.1 would misread (`1.20`, `yes`)
+  are quoted. Generation is opt-in, so hand-written descriptors keep working.
 - **`runServer` keeps its name.** People have IDE run configurations on it; other
   dev servers are `run<Name>Server`.
 

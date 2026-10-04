@@ -1,6 +1,7 @@
 package org.bxteam.quark.gradle
 
 import org.bxteam.quark.gradle.devserver.DevServerSpec
+import org.bxteam.quark.gradle.pluginyml.PluginYmlSpec
 import org.gradle.api.Action
 import org.gradle.api.NamedDomainObjectContainer
 import org.gradle.api.model.ObjectFactory
@@ -45,6 +46,11 @@ interface RepositoryDsl {
  *     }
  *     relocate("com.google.gson", "my.plugin.libs.gson")
  *
+ *     pluginYml {
+ *         main = "com.example.MyPlugin"
+ *         apiVersion = "1.20"
+ *     }
+ *
  *     devServer {
  *         version = "1.21.8"
  *         acceptEula()
@@ -83,6 +89,20 @@ abstract class QuarkExtension @Inject constructor(objects: ObjectFactory) {
      * Without entries no task is registered.
      */
     val devServers: NamedDomainObjectContainer<DevServerSpec> = objects.domainObjectContainer(DevServerSpec::class.java)
+
+    /**
+     * The plugin descriptor, generated only when [pluginYml] is called.
+     */
+    val pluginYml: PluginYmlSpec = objects.newInstance(PluginYmlSpec::class.java)
+
+    /**
+     * Generates the plugin descriptor of [platform] (`plugin.yml`, `paper-plugin.yml`, `bungee.yml` or
+     * `velocity-plugin.json`) instead of a hand-written one.
+     */
+    fun pluginYml(configure: Action<PluginYmlSpec>) {
+        pluginYml.enabled.set(true)
+        configure.execute(pluginYml)
+    }
 
     /**
      * Sets [platform] by name, e.g. `platform 'paper'` in the Groovy DSL.

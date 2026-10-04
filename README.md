@@ -28,7 +28,7 @@ Quark is a small framework for Minecraft plugin developers. Download Maven depen
 - **📝 Configs** — plain classes with `@Comment`, `@Header` and versioned migrations, saved as YAML in field order, with validation through `@Min`, `@Max`, `@Pattern` and friends. Serializers for ItemStack, Location, Sound and Adventure components on Bukkit.
 - **🔔 Update checks** — Modrinth, Hangar, GitHub Releases, SpigotMC or any JSON endpoint, with a console and join notification.
 - **🧵 Platform adapters** — one `Platform` and `Scheduler` API for Paper, Folia, Bukkit, Velocity and BungeeCord.
-- **🐘 Gradle plugin** — picks the adapter and modules, writes the dependency manifest, configures Shadow and starts a dev server with your plugin and others from Modrinth, Hangar, GitHub or Jenkins.
+- **🐘 Gradle plugin** — picks the adapter and modules, writes the dependency manifest and `plugin.yml`, configures Shadow and starts a dev server with your plugin and others from Modrinth, Hangar, GitHub or Jenkins.
 
 ## 🚀 Getting started
 
@@ -50,6 +50,11 @@ group = "com.example"
 quark {
     platform = ServerPlatform.PAPER
     modules(QuarkModule.DEPENDENCY, QuarkModule.CONFIG, QuarkModule.CONFIG_VALIDATOR)
+
+    pluginYml {
+        main = "com.example.MyPlugin"
+        apiVersion = "1.20"
+    }
 
     devServer {
         version = "1.21.8"
