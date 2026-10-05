@@ -3,13 +3,14 @@
   "extends": ["github>BX-Team/.github//renovate/gradle"],
   "packageRules": [
     {
-      "description": "Server APIs and Shadow are compileOnly compatibility floors: raising them drops support for older servers and builds.",
+      "description": "Server APIs, Shadow and log4j-api are compileOnly compatibility floors: raising them drops support for older servers and builds.",
       "matchPackageNames": [
         "org.spigotmc:spigot-api",
         "net.md-5:bungeecord-api",
         "io.papermc.paper:paper-api",
         "com.velocitypowered:velocity-api",
-        "com.gradleup.shadow:shadow-gradle-plugin"
+        "com.gradleup.shadow:shadow-gradle-plugin",
+        "org.apache.logging.log4j:log4j-api"
       ],
       "enabled": false
     }
