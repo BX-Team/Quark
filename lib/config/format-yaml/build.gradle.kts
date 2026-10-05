@@ -4,7 +4,7 @@ plugins {
 
 description = "YAML format for Quark configurations, on snakeyaml-engine loaded from the class path or at runtime"
 
-val snakeyamlEngine = "org.snakeyaml:snakeyaml-engine:3.1.1"
+val snakeyamlEngine = "org.snakeyaml:snakeyaml-engine:3.2"
 
 dependencies {
     api(project(":quark-config"))

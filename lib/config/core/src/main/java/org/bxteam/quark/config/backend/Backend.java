@@ -14,7 +14,7 @@ import static java.util.Objects.requireNonNull;
  *
  * <pre>{@code
  * String probe = "org.snakeyaml.engine.v2.api.Load"; // rewritten by Shadow
- * new Backend("snakeyaml-engine", "org.snakeyaml:snakeyaml-engine:3.1.1",
+ * new Backend("snakeyaml-engine", "org.snakeyaml:snakeyaml-engine:3.2",
  *         "org{}snakeyaml{}engine".replace("{}", "."),
  *         probe.substring(0, probe.length() - ".v2.api.Load".length()),
  *         probe);
