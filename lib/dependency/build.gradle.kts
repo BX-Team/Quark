@@ -4,7 +4,7 @@ plugins {
 
 description = "Runtime Maven dependency manager: resolution, relocation and class loading"
 
-val asmVersion = "9.10.1"
+val asmVersion = "9.11"
 
 dependencies {
     api(project(":quark-common"))
